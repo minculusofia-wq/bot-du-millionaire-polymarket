@@ -505,10 +505,23 @@ def api_edit_trader():
     per_trade_amount = data.get('per_trade_amount', 10)
     min_trade_amount = data.get('min_trade_amount', 0)
     
+    # Validation de l'adresse trader
+    if address and (not isinstance(address, str) or len(address) < 32):
+        return jsonify({'status': 'error', 'message': 'Invalid trader address format'})
+    
+    # Validation du capital
+    if capital is not None:
+        try:
+            capital = float(capital)
+            if capital < 0:
+                return jsonify({'status': 'error', 'message': 'Capital cannot be negative'})
+        except (ValueError, TypeError):
+            return jsonify({'status': 'error', 'message': 'Invalid capital value'})
+    
     if index is not None and 0 <= index < len(backend.data['traders']):
         backend.update_trader(index, name, emoji, address, capital, per_trade_amount, min_trade_amount)
         return jsonify({'status': 'ok'})
-    return jsonify({'status': 'error'})
+    return jsonify({'status': 'error', 'message': 'Invalid trader index'})
 
 @app.route('/api/set_wallet', methods=['POST'])
 def api_set_wallet():

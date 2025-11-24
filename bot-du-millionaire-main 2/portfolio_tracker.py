@@ -42,12 +42,16 @@ class RealPortfolioTracker:
             cache_key = f"wallet_{wallet_address}"
             if cache_key in self.cache:
                 try:
-                    cache_time, cached_value = self.cache[cache_key]
-                    if isinstance(cached_value, (int, float)):
-                        if datetime.now() - cache_time < timedelta(seconds=self.cache_ttl):
-                            return float(cached_value)
-                except:
-                    pass
+                    cache_entry = self.cache[cache_key]
+                    # Vérifier que l'entrée du cache est bien formatée
+                    if isinstance(cache_entry, tuple) and len(cache_entry) == 2:
+                        cache_time, cached_value = cache_entry
+                        if isinstance(cache_time, datetime) and isinstance(cached_value, (int, float)):
+                            if datetime.now() - cache_time < timedelta(seconds=self.cache_ttl):
+                                return float(cached_value)
+                except (TypeError, ValueError) as e:
+                    # Cache corrompu, le supprimer
+                    del self.cache[cache_key]
             
             # Valider l'adresse (si Solana disponible)
             if SolanaValidator:
@@ -117,16 +121,6 @@ class RealPortfolioTracker:
             return balance_lamports / 1_000_000_000  # Convertir lamports -> SOL
         except:
             return 0
-            
-    def _get_sol_price(self):
-        """Récupère le prix actuel du SOL en USD"""
-        try:
-            # Utiliser une API de prix publique
-            response = requests.get('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', timeout=5)
-            data = response.json()
-            return data.get('solana', {}).get('usd', 100)  # Default 100 si erreur
-        except:
-            return 100  # Prix par défaut si erreur
             
     def track_all_wallets(self):
         """Suivre tous les wallets des traders et calculer les PnL"""
@@ -216,17 +210,30 @@ class RealPortfolioTracker:
     def get_trader_performance(self, wallet_address):
         """Retourne la performance complète d'un trader via Solana réelle"""
         # Valider l'adresse
-        validator = SolanaValidator()
-        if not validator.is_valid_solana_address(wallet_address):
-            return {
-                'pnl': 0, 
-                'pnl_percent': 0, 
-                'current_value': 0,
-                'pnl_24h': 0,
-                'pnl_24h_percent': 0,
-                'pnl_7d': 0,
-                'pnl_7d_percent': 0
-            }
+        if SolanaValidator:
+            validator = SolanaValidator()
+            if not validator.is_valid_solana_address(wallet_address):
+                return {
+                    'pnl': 0, 
+                    'pnl_percent': 0, 
+                    'current_value': 0,
+                    'pnl_24h': 0,
+                    'pnl_24h_percent': 0,
+                    'pnl_7d': 0,
+                    'pnl_7d_percent': 0
+                }
+        else:
+            # Validation basique si SolanaValidator non disponible
+            if not isinstance(wallet_address, str) or len(wallet_address) < 32:
+                return {
+                    'pnl': 0, 
+                    'pnl_percent': 0, 
+                    'current_value': 0,
+                    'pnl_24h': 0,
+                    'pnl_24h_percent': 0,
+                    'pnl_7d': 0,
+                    'pnl_7d_percent': 0
+                }
         
         # Récupérer les vraies données du wallet
         current_value = self.get_wallet_value(wallet_address)
