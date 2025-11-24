@@ -39,10 +39,14 @@ def start_tracking():
                 for trader in backend.data.get('traders', []):
                     if trader.get('active'):
                         trades = copy_trading_simulator.get_trader_recent_trades(trader['address'], limit=5)
+                        if trades:
+                            print(f"✅ {len(trades)} trades détectés pour {trader['name']}")
                         for trade in trades:
                             capital_alloc = trader.get('capital', 100)
-                            copy_trading_simulator.simulate_trade_for_trader(trader['name'], trade, capital_alloc)
-        time.sleep(120)  # Mettre à jour toutes les 2 minutes (évite rate limiting RPC)
+                            if capital_alloc > 0:
+                                copy_trading_simulator.simulate_trade_for_trader(trader['name'], trade, capital_alloc)
+                                print(f"  → Copié: {trade.get('symbol', '?')} | Capital: ${capital_alloc}")
+        time.sleep(5)  # ⚡ Vérifier toutes les 5 secondes (ultra-rapide pour meme coins)
 
 tracking_thread = threading.Thread(target=start_tracking, daemon=True)
 tracking_thread.start()
