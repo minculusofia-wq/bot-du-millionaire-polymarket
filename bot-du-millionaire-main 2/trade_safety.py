@@ -76,9 +76,9 @@ class TradeSafety:
         
         trade = self.active_trades[trade_id]
         
-        # Calculer PnL
+        # Calculer PnL (évite division par zéro)
         pnl = (current_price - trade['entry_price']) * trade['amount']
-        pnl_percent = ((current_price - trade['entry_price']) / trade['entry_price']) * 100
+        pnl_percent = ((current_price - trade['entry_price']) / trade['entry_price'] * 100) if trade['entry_price'] != 0 else 0
         
         trade['current_price'] = current_price
         trade['pnl'] = pnl

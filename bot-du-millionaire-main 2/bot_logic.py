@@ -164,7 +164,7 @@ class BotBackend:
         entry_price = trade['entry_price']
         current_price = trade['current_price']
         
-        price_change_percent = ((current_price - entry_price) / entry_price) * 100
+        price_change_percent = ((current_price - entry_price) / entry_price * 100) if entry_price != 0 else 0
         
         # Vérifier Stop Loss
         sl_loss = self.data.get('sl_loss', 5)
@@ -204,10 +204,10 @@ class BotBackend:
                 new_price = self.simulate_price_movement(address)
                 trade['current_price'] = round(new_price, 6)
                 
-                # Recalculer PnL
+                # Recalculer PnL (évite division par zéro)
                 entry_price = trade['entry_price']
                 pnl = (new_price - entry_price) * trade['amount']
-                pnl_percent = ((new_price - entry_price) / entry_price) * 100
+                pnl_percent = ((new_price - entry_price) / entry_price * 100) if entry_price != 0 else 0
                 
                 trade['pnl'] = round(pnl, 2)
                 trade['pnl_percent'] = round(pnl_percent, 2)

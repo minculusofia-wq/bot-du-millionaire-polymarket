@@ -57,7 +57,9 @@ class BacktestingEngine:
                 losing_trades += 1
         
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-        total_pnl_percent = (total_pnl / (entry_price * amount * total_trades) * 100) if total_trades > 0 else 0
+        # Calculer le PnL % sur le capital initial moyen (évite division par zéro)
+        capital_per_trade = sum(t.get('input_amount', 1) for t in trades_history if t.get('entry_price_usd', 0) > 0)
+        total_pnl_percent = (total_pnl / capital_per_trade * 100) if capital_per_trade > 0 else 0
         
         result = {
             'strategy_id': f"{trader_address}_{tp_percent}_{sl_percent}_{datetime.now().isoformat()}",

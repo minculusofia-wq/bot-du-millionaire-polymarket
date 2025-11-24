@@ -108,9 +108,9 @@ class AutoSellManager:
         if position['status'] != 'OPEN':
             return position
         
-        # Calculer PnL
+        # Calculer PnL (évite division par zéro)
         pnl = (current_price - position['entry_price']) * position['amount']
-        pnl_percent = ((current_price - position['entry_price']) / position['entry_price']) * 100
+        pnl_percent = ((current_price - position['entry_price']) / position['entry_price'] * 100) if position['entry_price'] != 0 else 0
         
         position['current_price'] = current_price
         position['pnl'] = pnl
@@ -172,9 +172,9 @@ class AutoSellManager:
         
         position = self.open_positions[position_id]
         
-        # Calculer PnL final
+        # Calculer PnL final (évite division par zéro)
         final_pnl = (exit_price - position['entry_price']) * position['amount']
-        final_pnl_percent = ((exit_price - position['entry_price']) / position['entry_price']) * 100
+        final_pnl_percent = ((exit_price - position['entry_price']) / position['entry_price'] * 100) if position['entry_price'] != 0 else 0
         
         # Mettre à jour la position
         position['status'] = 'CLOSED'
@@ -220,9 +220,9 @@ class AutoSellManager:
         if position['status'] != 'OPEN':
             return {'error': 'Position already closed'}
         
-        # Calculer PnL final
+        # Calculer PnL final (évite division par zéro)
         final_pnl = (current_price - position['entry_price']) * position['amount']
-        final_pnl_percent = ((current_price - position['entry_price']) / position['entry_price']) * 100
+        final_pnl_percent = ((current_price - position['entry_price']) / position['entry_price'] * 100) if position['entry_price'] != 0 else 0
         
         # Fermer la position
         position['status'] = 'CLOSED'
