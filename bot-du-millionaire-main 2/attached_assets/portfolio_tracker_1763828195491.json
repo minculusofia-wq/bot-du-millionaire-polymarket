@@ -1,0 +1,142 @@
+{
+  "EQaxqKT3N981QBmdSUGNzAGK5S26zUwAdRHhBCgn87zD": {
+    "name": "AlphaMoon",
+    "emoji": "\ud83d\ude80",
+    "initial_value": 3740.00809290732,
+    "last_value": 3493.42612538376,
+    "pnl": -246.58196752356025,
+    "pnl_percent": -6.593086469282962,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 3493.42612538376
+      }
+    ]
+  },
+  "2undvDBttb5ohSggdzEhGUq6mhNBf9JsiLTcsguPp51c": {
+    "name": "DeFiKing",
+    "emoji": "\u265b",
+    "initial_value": 1524.8374003875601,
+    "last_value": 914.9720467521499,
+    "pnl": -609.8653536354102,
+    "pnl_percent": -39.99543515134164,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 914.9720467521499
+      }
+    ]
+  },
+  "DfMxre4cKmvogbLrPigxmibVTTQDuzjdXojWzjCXXhzj": {
+    "name": "SolShark",
+    "emoji": "\ud83e\udd88",
+    "initial_value": 269062.1329621911,
+    "last_value": 246850.44448461343,
+    "pnl": -22211.6884775777,
+    "pnl_percent": -8.25522649101236,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 246850.44448461343
+      }
+    ]
+  },
+  "89HbgWduLwoxcofWpmn1EiF9wEdpgkNDEyPjzZ72mkDi": {
+    "name": "Merlin",
+    "emoji": "\ud83e\uddd9",
+    "initial_value": 2032.80372695511,
+    "last_value": 2890.57724668331,
+    "pnl": 857.7735197282,
+    "pnl_percent": 42.19657354785743,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 2890.57724668331
+      }
+    ]
+  },
+  "BBPKQwYLyiPjAX2KTFxanR7vxwa7majAF7c7yoaRX8oR": {
+    "name": "Zap",
+    "emoji": "\u26a1",
+    "initial_value": 278.12120752422004,
+    "last_value": 22.82910159705,
+    "pnl": -255.29210592717004,
+    "pnl_percent": -91.79167176776264,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 22.82910159705
+      }
+    ]
+  },
+  "CTC7HVkCkPuChSJjArVip375ogvMUtQLhdzLfiPizdEc": {
+    "name": "Dragon",
+    "emoji": "\ud83d\udc09",
+    "initial_value": 18022.5085847,
+    "last_value": 18878.2747046,
+    "pnl": 855.7661198999995,
+    "pnl_percent": 4.748318558863066,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 18878.2747046
+      }
+    ]
+  },
+  "7BNaxx6KdUYrjACNQZ9He26NBFoFxujQMAfNLnArLGH5": {
+    "name": "Wisdom",
+    "emoji": "\ud83e\udd89",
+    "initial_value": 1653.9198758000002,
+    "last_value": 1108.8488581,
+    "pnl": -545.0710177000003,
+    "pnl_percent": -32.95631340280917,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 1108.8488581
+      }
+    ]
+  },
+  "DmB4xRNaVH2Y2FVBFsJKYvdPDKYjx2sgC8aQFRBF4gB2": {
+    "name": "Sniper",
+    "emoji": "\ud83c\udfaf",
+    "initial_value": 17144.9352624,
+    "last_value": 17144.9352624,
+    "pnl": 0.0,
+    "pnl_percent": 0.0,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 17144.9352624
+      }
+    ]
+  },
+  "EzLu595m6CRxPybAUjSser9FmjDvjS3d3vyX4CPiu8Xn": {
+    "name": "Pirate",
+    "emoji": "\ud83c\udff4\u200d\u2620\ufe0f",
+    "initial_value": 297.21567919999995,
+    "last_value": 1159.2793538,
+    "pnl": 862.0636746000001,
+    "pnl_percent": 290.04649987523277,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 1159.2793538
+      }
+    ]
+  },
+  "PMJA8UQDyWTFw2Smhyp9jGA6aTaP7jKHR7BPudrgyYN": {
+    "name": "ApeTrain",
+    "emoji": "\ud83d\ude82",
+    "initial_value": 17194.3040862,
+    "last_value": 11573.0087059,
+    "pnl": -5621.295380300002,
+    "pnl_percent": -32.692776352673704,
+    "history": [
+      {
+        "timestamp": "2025-11-22T16:55:29.908137",
+        "value": 11573.0087059
+      }
+    ]
+  }
+}
