@@ -16,6 +16,14 @@
   - 🟢 Bordure verte sur la liste des traders
   - 🟢 Surlignage dans le tableau de bord avec indicateur ✅
 
+### 🤖 Achat & Vente AUTOMATIQUE (Core du Bot)
+- ✅ **Trader achète** → **Bot achète AUTOMATIQUEMENT** (capital alloué)
+- ✅ **Trader vend** → **Bot vend AUTOMATIQUEMENT**
+- ✅ **Respect TP/SL** : Si configurés, le bot applique les Take Profit/Stop Loss
+- ✅ **Mode Mirror** : Si TP/SL = 0, bot vend exactement comme le trader
+- ✅ **Vente manuelle** : Bonus optionnel - bouton 💰 Vendre par position
+- ✅ **Mode TEST = MODE REAL** : Logique identique dans les deux modes
+
 ### 💰 Contrôle Trading Avancé
 - ✅ **3 Take Profit configurables** (TP1, TP2, TP3)
   - TP1 : 33% de position à +10% de profit
@@ -28,6 +36,20 @@
 
 - ✅ **Slippage réglable** : 0.1% à 100%
 - ✅ **Mode USD/SOL** : Changement instantané
+
+### 🎮 Backtesting Avancé
+- ✅ **Onglet Backtesting** complet avec interface visuelle
+- ✅ **Tester tous les paramètres TP/SL** (30+ combinaisons)
+- ✅ **Affichage résultats en temps réel** : Win Rate, PnL, Trades
+- ✅ **Identification meilleur résultat** avec surlignage doré
+- ✅ **Données réelles** : Backtesting basé sur les vraies transactions
+
+### 🏆 Benchmark Intelligent
+- ✅ **Onglet Benchmark** : Comparer Bot vs Traders
+- ✅ **Classement complet** avec médailles 🥇🥈🥉
+- ✅ **Performances détaillées** : PnL%, Win Rate, Classement
+- ✅ **Identification meilleur trader** automatique
+- ✅ **Mise à jour en temps réel**
 
 ### 📈 Tableau de Bord Complet
 - **Performance en temps réel** avec PnL total
@@ -51,11 +73,12 @@
 - ✅ **Déconnexion sécurisée** avec effacement immédiat
 
 ### 🌐 Interface Web Moderne
-- ✅ **4 onglets** : Tableau de Bord, Gestion Traders, Paramètres, Historique
+- ✅ **6 onglets** : Tableau de Bord, Gestion Traders, 🎮 Backtesting, 🏆 Benchmark, Paramètres, Historique
 - ✅ **Thème sombre** professionnel
 - ✅ **Responsive** : Fonctionne sur desktop et mobile
 - ✅ **Animations fluides** et navigation intuitive
 - ✅ **Mise à jour en temps réel** (chaque seconde)
+- ✅ **Suivi des positions ouvertes** en direct
 
 ---
 
@@ -209,7 +232,7 @@ Les paramètres principaux sont sauvegardés automatiquement :
 
 ---
 
-## 📈 Améliorations Récentes (Phase 1-4)
+## 📈 Améliorations Récentes (Phase 1-6)
 
 ### Phase 1: Foundation ✅
 - ✅ Intégration Solana RPC réelle
@@ -235,6 +258,36 @@ Les paramètres principaux sont sauvegardés automatiquement :
 - ✅ ExecutionMonitor - Stats DEX, slippage, timing
 - ✅ SystemMonitor - RPC health, wallet balance trends
 - ✅ 7 routes API métriques + tendances
+
+### Phase 5: Real Copy Trading Simulation ✅
+- ✅ **copy_trading_simulator.py** : Simulation copy trading réel
+- ✅ Récupère les **VRAIES transactions** des traders via Helius API
+- ✅ Simule les mêmes trades avec capital fictif **1000$**
+- ✅ Calcule le **PnL réel** de la simulation
+- ✅ Support complet **MODE TEST** avec données réelles + exécution simulée
+- ✅ Routes API : `/api/copy_trading_pnl` et `/api/trader_simulation/<name>`
+
+### Phase 6: Backtesting, Benchmark & Auto Sell ✅ NEW!
+- ✅ **backtesting_engine.py** : Moteur de backtesting multi-paramètres
+  - Teste 30+ combinaisons TP/SL
+  - Identification du meilleur résultat
+  - Interface visuelle avec résultats détaillés
+  
+- ✅ **benchmark_system.py** : Système de benchmark intelligent
+  - Compare Bot vs chaque trader
+  - Classement avec médailles (🥇🥈🥉)
+  - Suivi win rate et PnL%
+  
+- ✅ **auto_sell_manager.py** : Vente automatique intelligente
+  - Détecte automatiquement quand trader vend
+  - Respecte TP/SL configurés
+  - Mode mirror si TP/SL = 0 (vend exactement comme trader)
+  - Vente manuelle optionnelle
+  - MODE TEST = MODE REAL (logique identique)
+
+- ✅ **6 onglets UI** : Dashboard, Traders, Backtesting, Benchmark, Paramètres, Historique
+- ✅ **Suivi positions ouvertes** en temps réel
+- ✅ **SQLite persistance** : 30+ jours historique
 
 ---
 
@@ -317,21 +370,28 @@ Les contributions sont bienvenues ! Pour proposer une amélioration :
 - Santé système et RPC
 - Statistiques DEX
 
-### Phase 5 - Real Copy Trading Simulation ✅ NEW!
+### Phase 5 - Real Copy Trading Simulation ✅
 - **copy_trading_simulator.py** : Simulation copy trading réel
 - Récupère les **VRAIES transactions** des traders via Helius API
 - Simule les mêmes trades avec capital fictif **1000$**
 - Calcule le **PnL réel** de la simulation
 - Support complet **MODE TEST** avec données réelles + exécution simulée
-- Routes API : `/api/copy_trading_pnl` et `/api/trader_simulation/<name>`
+
+### Phase 6 - Backtesting, Benchmark & Auto Sell ✅ NEW!
+- **backtesting_engine.py** : 30+ combinaisons TP/SL testables
+- **benchmark_system.py** : Classement Bot vs Traders avec médailles
+- **auto_sell_manager.py** : Vente automatique + Mode Mirror
+- **6 onglets UI** : Interface complète intégrée
+- **SQLite persistence** : Historique complet 30+ jours
 
 ## ⚡ Roadmap Futur
 
-### Phase 6+ (Possibilités)
+### Phase 7+ (Possibilités)
 - [ ] Prédictions ML / Trading signals
 - [ ] Support de multiples blockchains
-- [ ] Intégrations API tierces
+- [ ] Intégrations API tierces (Telegram, Discord alertes)
 - [ ] Dashboard d'analyse approfondie
+- [ ] Export PDF/CSV rapports
 
 ---
 
@@ -341,10 +401,13 @@ Créer un bot de copy trading simple et sécurisé pour débutants qui veulent a
 
 ---
 
-**Dernière mise à jour** : 22 novembre 2025  
-**Version** : 3.0.0 (Phases 1-5 Complétées - Copy Trading Simulation)  
+**Dernière mise à jour** : 24 novembre 2025  
+**Version** : 4.0.0 (Phases 1-6 Complétées - Backtesting, Benchmark & Auto Sell)  
 **Statut** : ✅ Production-Ready  
 **Mode TEST** : ✅ Vraies données + Exécution simulée (1000$ fictifs)  
+**Auto Sell** : ✅ Automatique + Respect TP/SL + Mode Mirror  
+**Backtesting** : ✅ 30+ paramètres testables  
+**Benchmark** : ✅ Classement Bot vs Traders  
 **Plateforme** : ✅ macOS, Linux, Windows  
 **Licence** : Personnel - Non-Commercial
 
