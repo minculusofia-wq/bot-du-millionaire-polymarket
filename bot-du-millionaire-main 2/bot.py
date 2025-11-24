@@ -429,6 +429,14 @@ HTML_TEMPLATE = """
                 document.getElementById('active_traders_count').textContent = data.active_traders;
                 document.getElementById('total_capital_display').textContent = '$' + data.total_capital;
                 
+                // ✅ AFFICHER LE PnL TOTAL ET PERFORMANCE BOT
+                const pnl_color = data.pnl_total >= 0 ? '#00E676' : '#D50000';
+                document.getElementById('total_pnl').textContent = (data.pnl_total >= 0 ? '+' : '') + '$' + data.pnl_total;
+                document.getElementById('total_pnl').style.color = pnl_color;
+                const perf_color = data.pnl_percent >= 0 ? '#00E676' : '#D50000';
+                document.getElementById('bot_performance').textContent = (data.pnl_percent >= 0 ? '+' : '') + data.pnl_percent + '%';
+                document.getElementById('bot_performance').style.color = perf_color;
+                
                 // Calculer capital alloué
                 let totalAllocated = 0;
                 data.traders.forEach(t => { totalAllocated += (t.capital || 0); });
@@ -850,6 +858,8 @@ def index():
 def api_status():
     return jsonify({
         'portfolio': backend.get_portfolio_value(),
+        'pnl_total': backend.get_total_pnl(),
+        'pnl_percent': backend.get_total_pnl_percent(),
         'running': backend.is_running,
         'mode': backend.data.get('mode', 'TEST'),
         'active_traders': backend.get_active_traders_count(),

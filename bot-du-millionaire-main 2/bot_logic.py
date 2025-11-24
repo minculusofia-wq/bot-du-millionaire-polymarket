@@ -241,11 +241,28 @@ class BotBackend:
         return result
 
     def get_total_pnl(self):
-        """Retourne le PnL total"""
-        if self.data.get("mode") != "TEST":
+        """Retourne le PnL total À PARTIR DES DONNÉES RÉELLES DES TRADERS"""
+        try:
+            import json
+            with open('portfolio_tracker.json', 'r') as f:
+                data = json.load(f)
+                total_pnl = sum(trader.get('pnl', 0) for trader in data.values())
+                return round(total_pnl, 2)
+        except:
             return 0
-        
-        return round(sum([t['pnl'] for t in self.test_trades]), 2)
+    
+    def get_total_pnl_percent(self):
+        """Retourne le PnL % moyen"""
+        try:
+            import json
+            with open('portfolio_tracker.json', 'r') as f:
+                data = json.load(f)
+                if not data:
+                    return 0
+                avg_pnl_percent = sum(trader.get('pnl_percent', 0) for trader in data.values()) / len(data)
+                return round(avg_pnl_percent, 2)
+        except:
+            return 0
 
     def get_test_trades(self):
         """Retourne les 10 derniers trades"""
