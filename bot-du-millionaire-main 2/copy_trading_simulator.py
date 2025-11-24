@@ -9,6 +9,8 @@ import os
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
+from db_manager import db_manager
+import uuid
 
 class CopyTradingSimulator:
     """Simule le copy trading avec capital fictif"""
@@ -31,6 +33,26 @@ class CopyTradingSimulator:
         """Sauvegarde les trades simulés"""
         with open('simulated_trades.json', 'w') as f:
             json.dump(self.simulated_trades, f, indent=2)
+        
+        # Synchroniser avec la DB
+        for trade_id, trade_data in self.simulated_trades.items():
+            db_manager.save_simulated_trade({
+                'trade_id': trade_id,
+                'trader_address': trade_data.get('trader_address', ''),
+                'trader_name': trade_data.get('trader_name', ''),
+                'signature': trade_data.get('signature', ''),
+                'timestamp': trade_data.get('timestamp', datetime.now().isoformat()),
+                'swap_type': 'SWAP',
+                'input_mint': trade_data.get('input_mint', ''),
+                'input_amount': trade_data.get('input_amount', 0),
+                'output_mint': trade_data.get('output_mint', ''),
+                'output_amount': trade_data.get('output_amount', 0),
+                'entry_price_usd': trade_data.get('entry_price_usd', 0),
+                'exit_price_usd': trade_data.get('exit_price_usd', 0),
+                'status': trade_data.get('status', 'OPEN'),
+                'pnl': trade_data.get('pnl', 0),
+                'pnl_percent': trade_data.get('pnl_percent', 0)
+            })
     
     def _load_trader_portfolios(self) -> Dict:
         """Charge les portefeuilles simulés des traders"""
@@ -44,6 +66,27 @@ class CopyTradingSimulator:
         """Sauvegarde les portefeuilles simulés"""
         with open('trader_portfolios.json', 'w') as f:
             json.dump(self.trader_portfolios, f, indent=2)
+        
+        # Synchroniser avec la DB
+        for trader_name, portfolio in self.trader_portfolios.items():
+            trades = portfolio.get('trades', [])
+            total_pnl = portfolio.get('realized_pnl', 0)
+            
+            # Calculer PnL des positions ouvertes
+            for pos in portfolio.get('positions', {}).values():
+                total_pnl += pos.get('pnl', 0)
+            
+            # Sauvegarder dans la DB
+            db_manager.update_trader_portfolio(
+                trader_name,
+                trader_name,
+                portfolio.get('capital', 0),
+                portfolio.get('available_balance', 0) + portfolio.get('capital', 0) - sum(
+                    p.get('purchase_usd', 0) for p in portfolio.get('positions', {}).values()
+                ),
+                total_pnl,
+                (total_pnl / portfolio.get('capital', 1) * 100) if portfolio.get('capital', 0) > 0 else 0
+            )
     
     def get_trader_recent_trades(self, trader_address: str, limit: int = 10) -> List[Dict]:
         """Récupère les VRAIES transactions d'un trader via Helius"""

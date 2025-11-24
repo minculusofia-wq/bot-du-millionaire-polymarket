@@ -12,6 +12,9 @@ from trade_safety import trade_safety, RiskLevel
 from audit_logger import audit_logger, LogLevel
 from monitoring import metrics_collector
 from copy_trading_simulator import copy_trading_simulator
+from db_manager import db_manager
+from backtesting_engine import backtesting_engine
+from benchmark_system import benchmark_system
 
 app = Flask(__name__)
 backend = BotBackend()
@@ -761,6 +764,55 @@ def api_copy_trading_pnl():
 def api_trader_simulation(trader_name):
     """Détails de la simulation pour un trader"""
     return jsonify(copy_trading_simulator.get_trader_simulation_status(trader_name))
+
+@app.route('/api/backtest', methods=['POST'])
+def api_backtest():
+    """Lance un backtest pour un trader"""
+    data = request.get_json()
+    trader_address = data.get('trader_address', '')
+    tp_percent = float(data.get('tp_percent', 10))
+    sl_percent = float(data.get('sl_percent', 5))
+    
+    trades = db_manager.get_simulated_trades(trader_address, limit=100)
+    result = backtesting_engine.run_backtest(trader_address, trades, tp_percent, sl_percent)
+    
+    return jsonify(result)
+
+@app.route('/api/backtest_multiple', methods=['POST'])
+def api_backtest_multiple():
+    """Lance plusieurs backtests"""
+    data = request.get_json()
+    trader_address = data.get('trader_address', '')
+    
+    trades = db_manager.get_simulated_trades(trader_address, limit=100)
+    results = backtesting_engine.run_multiple_backtests(trader_address, trades)
+    
+    return jsonify({'results': results, 'best': backtesting_engine.get_best_parameters(trader_address)})
+
+@app.route('/api/benchmark', methods=['GET'])
+def api_benchmark():
+    """Benchmark bot vs traders"""
+    bot_perf = metrics_collector.get_performance_summary()
+    traders_perf = []
+    
+    for trader in backend.data.get('traders', []):
+        perf = portfolio_tracker.get_trader_performance(trader['address'])
+        perf['address'] = trader['address']
+        perf['name'] = trader['name']
+        traders_perf.append(perf)
+    
+    benchmark = benchmark_system.calculate_benchmark(bot_perf, traders_perf)
+    return jsonify(benchmark)
+
+@app.route('/api/benchmark_ranking', methods=['GET'])
+def api_benchmark_ranking():
+    """Classement bot vs traders"""
+    return jsonify({'ranking': benchmark_system.get_ranking()})
+
+@app.route('/api/benchmark_summary', methods=['GET'])
+def api_benchmark_summary():
+    """Résumé du benchmark"""
+    return jsonify(benchmark_system.get_benchmark_summary())
 
 if __name__ == '__main__':
     print("🚀 Lancement sur http://0.0.0.0:5000")

@@ -3,6 +3,7 @@ import time
 import json
 from datetime import datetime, timedelta
 from bot_logic import BotBackend
+from db_manager import db_manager
 
 # Imports conditionnels pour macOS/dev
 try:
@@ -34,6 +35,17 @@ class RealPortfolioTracker:
         """Sauvegarde les données de suivi"""
         with open('portfolio_tracker.json', 'w') as f:
             json.dump(self.tracker_data, f, indent=2)
+        
+        # Synchroniser avec la DB
+        for wallet, data in self.tracker_data.items():
+            db_manager.update_trader_portfolio(
+                wallet,
+                data.get('name', 'Unknown'),
+                data.get('initial_value', 0),
+                data.get('last_value', 0),
+                data.get('pnl', 0),
+                data.get('pnl_percent', 0)
+            )
             
     def get_wallet_value(self, wallet_address):
         """Récupère la valeur totale d'un wallet en USD"""
@@ -163,6 +175,15 @@ class RealPortfolioTracker:
                     'timestamp': current_timestamp,
                     'value': current_value
                 })
+                
+                # Sauvegarder dans la DB
+                db_manager.save_portfolio_history(
+                    wallet,
+                    current_value,
+                    pnl,
+                    pnl_percent,
+                    current_timestamp
+                )
                 
                 # Nettoyer l'historique (garder seulement 8 jours)
                 cutoff_date = datetime.now() - timedelta(days=8)
