@@ -28,7 +28,7 @@ class RealPortfolioTracker:
         try:
             with open('portfolio_tracker.json', 'r') as f:
                 return json.load(f)
-        except:
+        except (FileNotFoundError, json.JSONDecodeError):
             return {}
     
     def _save_tracker_data(self):
@@ -131,7 +131,7 @@ class RealPortfolioTracker:
             result = response.json()
             balance_lamports = result.get('result', {}).get('value', 0)
             return balance_lamports / 1_000_000_000  # Convertir lamports -> SOL
-        except:
+        except (requests.RequestException, ValueError, KeyError):
             return 0
             
     def track_all_wallets(self):

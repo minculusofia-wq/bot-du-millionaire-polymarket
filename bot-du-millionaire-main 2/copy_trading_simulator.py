@@ -26,7 +26,7 @@ class CopyTradingSimulator:
         try:
             with open('simulated_trades.json', 'r') as f:
                 return json.load(f)
-        except:
+        except (FileNotFoundError, json.JSONDecodeError):
             return {}
     
     def _save_simulated_trades(self):
@@ -59,7 +59,7 @@ class CopyTradingSimulator:
         try:
             with open('trader_portfolios.json', 'r') as f:
                 return json.load(f)
-        except:
+        except (FileNotFoundError, json.JSONDecodeError):
             return {}
     
     def _save_trader_portfolios(self):

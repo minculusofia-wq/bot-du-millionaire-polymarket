@@ -24,7 +24,7 @@ class AutoSellManager:
         try:
             with open('open_positions.json', 'r') as f:
                 return json.load(f)
-        except:
+        except (FileNotFoundError, json.JSONDecodeError):
             return {}
     
     def _save_open_positions(self):
@@ -37,7 +37,7 @@ class AutoSellManager:
         try:
             with open('auto_sell_config.json', 'r') as f:
                 return json.load(f)
-        except:
+        except (FileNotFoundError, json.JSONDecodeError):
             return {
                 'tp_levels': [
                     {'percent_of_position': 33, 'profit_target': 10},

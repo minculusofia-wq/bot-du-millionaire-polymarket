@@ -16,7 +16,8 @@ Preferred communication style: Simple, everyday language.
 - **Benchmark System**: Compare bot performance vs selected traders with ranking
 
 ### 🔧 Code Audit & Bug Fixes (November 24, 2025)
-**7 Division-by-Zero Protection Fixes:**
+
+**Phase 1: Division-by-Zero Protection (7 fixes)**
 1. `backtesting_engine.py` line 62: PnL % calculation protected
 2. `trade_safety.py` line 81: Entry price protection for PnL calculation
 3. `auto_sell_manager.py` line 113: Entry price protection in position tracking
@@ -25,7 +26,16 @@ Preferred communication style: Simple, everyday language.
 6. `bot_logic.py` line 170: Price change percent calculation protected
 7. `bot_logic.py` line 213: Trade PnL update calculation protected
 
-**Status**: All bugs fixed ✅ - Bot running error-free with 200 status codes
+**Phase 2: Exception Handling Improvements (5 fixes)**
+Fixed bare `except:` clauses to specify expected exceptions:
+1. `auto_sell_manager.py` line 30: Now catches `(FileNotFoundError, json.JSONDecodeError)`
+2. `auto_sell_manager.py` line 43: Now catches `(FileNotFoundError, json.JSONDecodeError)`
+3. `portfolio_tracker.py` line 34: Now catches `(FileNotFoundError, json.JSONDecodeError)`
+4. `portfolio_tracker.py` line 137: Now catches `(requests.RequestException, ValueError, KeyError)`
+5. `copy_trading_simulator.py` line 32: Now catches `(FileNotFoundError, json.JSONDecodeError)`
+6. `copy_trading_simulator.py` line 65: Now catches `(FileNotFoundError, json.JSONDecodeError)`
+
+**Status**: All issues fixed ✅ - Bot running error-free with 200 status codes, improved error handling
 
 ## System Architecture
 
