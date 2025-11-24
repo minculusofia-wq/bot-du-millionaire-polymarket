@@ -20,6 +20,7 @@ class CopyTradingSimulator:
         self.rpc_url = "https://api.mainnet-beta.solana.com"
         self.simulated_trades = self._load_simulated_trades()
         self.trader_portfolios = self._load_trader_portfolios()
+        self.max_slippage_allowed = 100  # Max 100% pour meme coins (configurable)
         
     def _load_simulated_trades(self) -> Dict:
         """Charge les trades simulés"""
@@ -158,6 +159,39 @@ class CopyTradingSimulator:
             print(f"⚠️ Erreur parsing swap {tx_signature}: {e}")
             return None
     
+    def calculate_slippage_percent(self, trade: Dict) -> float:
+        """
+        Calcule le slippage réel d'un trade (%)
+        Pour meme coins, peut être 0-100%+
+        """
+        try:
+            in_amount = trade.get('in_amount', 0)
+            out_amount = trade.get('out_amount', 0)
+            
+            if in_amount == 0 or out_amount == 0:
+                return 0
+            
+            # Slippage = (théorique - réel) / théorique * 100
+            theoretical_ratio = in_amount / out_amount if out_amount > 0 else 1
+            slippage = (theoretical_ratio - 1) * 100
+            return max(0, slippage)
+        except Exception:
+            return 0
+    
+    def apply_slippage_to_execution(self, trade: Dict, slippage_percent: float) -> Dict:
+        """Applique le slippage à l'exécution du trade"""
+        execution = trade.copy()
+        if slippage_percent > 0:
+            # Réduire la quantité reçue par le slippage
+            out_amount_after_slippage = execution.get('out_amount', 0) * (1 - slippage_percent / 100)
+            execution['out_amount_slipped'] = out_amount_after_slippage
+            execution['slippage_applied_percent'] = slippage_percent
+        else:
+            execution['out_amount_slipped'] = execution.get('out_amount', 0)
+            execution['slippage_applied_percent'] = 0
+        
+        return execution
+    
     def simulate_trade_for_trader(self, trader_name: str, trade: Dict, capital_allocation: float) -> Dict:
         """Simule l'exécution d'un trade copié pour un trader avec capital fictif"""
         try:
@@ -186,7 +220,11 @@ class CopyTradingSimulator:
             # Montant à investir (proportionnel au capital disponible)
             trade_amount_usd = available * 0.1  # Investir 10% du capital disponible par trade
             
-            # Créer l'exécution simulée
+            # Calculer et appliquer le slippage RÉEL
+            real_slippage = self.calculate_slippage_percent(trade)
+            trade_with_slippage = self.apply_slippage_to_execution(trade, real_slippage)
+            
+            # Créer l'exécution simulée avec slippage appliqué
             execution = {
                 'id': trade_id,
                 'timestamp': datetime.now().isoformat(),
@@ -194,7 +232,9 @@ class CopyTradingSimulator:
                 'in_token': trade['in_mint'],
                 'out_token': trade['out_mint'],
                 'in_amount': trade['in_amount'],
-                'out_amount': trade['out_amount'],
+                'out_amount': trade.get('out_amount', 0),
+                'out_amount_after_slippage': trade_with_slippage.get('out_amount_slipped', 0),
+                'slippage_percent': real_slippage,
                 'simulated_amount_usd': trade_amount_usd,
                 'status': 'executed',
                 'pnl': 0,
@@ -205,22 +245,26 @@ class CopyTradingSimulator:
             trader_portfolio['trades'].append(execution)
             trader_portfolio['available_balance'] -= trade_amount_usd
             
-            # Ajouter à la position
+            # Ajouter à la position (en utilisant la quantité après slippage)
             token_key = trade['out_mint']
+            out_amount_final = trade_with_slippage.get('out_amount_slipped', trade.get('out_amount', 0))
+            
             if token_key not in trader_portfolio['positions']:
                 trader_portfolio['positions'][token_key] = {
-                    'amount': 0,
-                    'entry_price_usd': trade_amount_usd / trade['out_amount'] if trade['out_amount'] > 0 else 0,
+                    'amount': out_amount_final,
+                    'entry_price_usd': trade_amount_usd / out_amount_final if out_amount_final > 0 else 0,
                     'purchase_usd': trade_amount_usd,
-                    'purchase_timestamp': execution['timestamp']
+                    'purchase_timestamp': execution['timestamp'],
+                    'slippage_incurred': real_slippage
                 }
             else:
                 # Augmenter la position
                 pos = trader_portfolio['positions'][token_key]
                 old_cost = pos['amount'] * pos['entry_price_usd']
-                pos['amount'] += trade['out_amount']
+                pos['amount'] += out_amount_final
                 pos['entry_price_usd'] = (old_cost + trade_amount_usd) / pos['amount'] if pos['amount'] > 0 else 0
                 pos['purchase_usd'] += trade_amount_usd
+                pos['slippage_incurred'] = real_slippage
             
             self._save_trader_portfolios()
             

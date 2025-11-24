@@ -16,12 +16,19 @@ from db_manager import db_manager
 from backtesting_engine import backtesting_engine
 from benchmark_system import benchmark_system
 from auto_sell_manager import auto_sell_manager
+from helius_websocket import helius_websocket
 
 app = Flask(__name__)
 backend = BotBackend()
 
 # Démarrer le thread de suivi des portefeuilles + simulation copy trading
 def start_tracking():
+    # Démarrer le websocket Helius pour détection ultra-rapide
+    try:
+        helius_websocket.start()
+    except Exception as e:
+        print(f"⚠️ Websocket Helius non disponible: {e}")
+    
     while True:
         if backend.is_running:
             portfolio_tracker.track_all_wallets()

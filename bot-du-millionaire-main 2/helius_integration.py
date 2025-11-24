@@ -1,6 +1,7 @@
 """
 Intégration Helius - Parser enrichi des transactions Solana
 Identifie automatiquement les swaps, DEX et montants
+Inclut support pour slippage dynamique et meilleure exécution
 """
 import requests
 import os
@@ -14,6 +15,7 @@ class HeliumsAPI:
         self.api_key = os.getenv('HELIUS_API_KEY')
         self.base_url = "https://api-mainnet.helius-rpc.com/v0"
         self.timeout = 10
+        self.slippage_cache = {}  # Cache slippage calculations
         
         if not self.api_key:
             print("⚠️ HELIUS_API_KEY non définie - utilisation du mode RPC standard")
@@ -149,6 +151,31 @@ class HeliumsTradeAnalyzer:
                 return emoji
         
         return f"📊 {source}"
+    
+    def calculate_slippage_percent(self, trade: Dict) -> float:
+        """
+        Calcule le slippage réel d'un trade (%)
+        Pour meme coins, le slippage peut être 0-100%+
+        """
+        try:
+            in_amount = trade.get('in_amount', 0)
+            out_amount = trade.get('out_amount', 0)
+            
+            if in_amount == 0 or out_amount == 0:
+                return 0
+            
+            # Ratio sans slippage = 1:1 (approximation)
+            # Slippage = (prix attendu - prix réel) / prix attendu * 100
+            theoretical_out = in_amount  # Pour 1:1 (simplifié)
+            if theoretical_out == 0:
+                return 0
+            
+            slippage = ((theoretical_out - out_amount) / theoretical_out) * 100
+            return max(0, slippage)  # Pas de slippage négatif
+        
+        except Exception as e:
+            print(f"⚠️ Erreur calcul slippage: {e}")
+            return 0
     
     def analyze_trader_activity(self, address: str) -> Dict:
         """Analyse complète de l'activité d'un trader"""
