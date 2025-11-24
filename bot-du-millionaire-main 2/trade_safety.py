@@ -114,9 +114,9 @@ class TradeSafety:
         trade['exit_price'] = exit_price
         trade['exit_time'] = datetime.now().isoformat()
         
-        # Calculer PnL final
+        # Calculer PnL final (protégé contre division par zéro)
         final_pnl = (exit_price - trade['entry_price']) * trade['amount']
-        final_pnl_percent = ((exit_price - trade['entry_price']) / trade['entry_price']) * 100
+        final_pnl_percent = ((exit_price - trade['entry_price']) / trade['entry_price'] * 100) if trade['entry_price'] != 0 else 0
         
         trade['final_pnl'] = final_pnl
         trade['final_pnl_percent'] = final_pnl_percent
