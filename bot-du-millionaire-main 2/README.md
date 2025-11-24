@@ -73,12 +73,22 @@
 - ✅ **Déconnexion sécurisée** avec effacement immédiat
 
 ### 🌐 Interface Web Moderne
-- ✅ **6 onglets** : Tableau de Bord, Gestion Traders, 🎮 Backtesting, 🏆 Benchmark, Paramètres, Historique
+- ✅ **7 onglets** : Tableau de Bord, ⚡ LIVE TRADING, Gestion Traders, 🎮 Backtesting, 🏆 Benchmark, Paramètres, Historique
 - ✅ **Thème sombre** professionnel
 - ✅ **Responsive** : Fonctionne sur desktop et mobile
 - ✅ **Animations fluides** et navigation intuitive
 - ✅ **Mise à jour en temps réel** (chaque seconde)
 - ✅ **Suivi des positions ouvertes** en direct
+
+### ⚡ LIVE TRADING Dashboard (Phase 7)
+- ✅ **Monitoring temps réel** avec polling 1 seconde
+- ✅ **Affichage tokens** : Vois quels tokens trade chaque trader
+- ✅ **Indicateurs visuels** : 🟢 Rentable vs 🔴 En perte
+- ✅ **Actions rapides** :
+  - 💰 [SORTIR TOUT] = Ferme toutes les positions du trader
+  - ❌ [DÉSACTIVER] = Arrête ce trader
+- ✅ **Stats en direct** : PnL 24h, Win Rate %, positions ouvertes
+- ✅ **Vue synthétique** : Portefeuille total, traders actifs, positions
 
 ---
 
@@ -131,14 +141,23 @@ L'application s'ouvrira à : **http://localhost:5000**
 - **Consultez** les statistiques : trades, performance, traders actifs
 - **Surveillez** l'évolution avec le graphique
 
-### 2️⃣ Gestion des Traders
+### 2️⃣ LIVE TRADING (Nouveau!)
+- **Accédez** à l'onglet "⚡ LIVE TRADING" pour monitoring en temps réel
+- **Voyez** les tokens tradés par chaque trader
+- **Identifiez** rapidement les traders rentables 🟢 vs en perte 🔴
+- **Réagissez** immédiatement :
+  - Sortez de toutes les positions d'un trader en 1 clic
+  - Désactivez un trader qui ne perfs pas
+- **Surveillez** les stats : PnL 24h, Win Rate, nombre de positions
+
+### 3️⃣ Gestion des Traders
 - **Cochez** jusqu'à 3 traders pour les activer
 - **Observez** la surbrillance verte quand un trader est sélectionné
 - **Éditez** les traders avec le bouton ✏️
   - Changez le nom, emoji ou adresse
   - Les modifications se sauvegardent automatiquement
 
-### 3️⃣ Paramètres & Sécurité
+### 4️⃣ Paramètres & Sécurité
 - **Slippage** : Ajustez avec le curseur (0.1% - 100%)
 - **Take Profit** : 3 niveaux configurables
   - % de position à vendre
@@ -150,7 +169,7 @@ L'application s'ouvrira à : **http://localhost:5000**
   - Stockée en mémoire uniquement (jamais sauvegardée)
   - Déconnexion sécurisée disponible
 
-### 4️⃣ Historique
+### 5️⃣ Historique
 - **Tous les trades** détectés avec horodatage
 - **Performances** : PnL et % par trade
 - **Signatures** : Pour vérification sur l'explorateur
@@ -267,7 +286,7 @@ Les paramètres principaux sont sauvegardés automatiquement :
 - ✅ Support complet **MODE TEST** avec données réelles + exécution simulée
 - ✅ Routes API : `/api/copy_trading_pnl` et `/api/trader_simulation/<name>`
 
-### Phase 6: Backtesting, Benchmark & Auto Sell ✅ NEW!
+### Phase 6: Backtesting, Benchmark & Auto Sell ✅
 - ✅ **backtesting_engine.py** : Moteur de backtesting multi-paramètres
   - Teste 30+ combinaisons TP/SL
   - Identification du meilleur résultat
@@ -288,6 +307,23 @@ Les paramètres principaux sont sauvegardés automatiquement :
 - ✅ **6 onglets UI** : Dashboard, Traders, Backtesting, Benchmark, Paramètres, Historique
 - ✅ **Suivi positions ouvertes** en temps réel
 - ✅ **SQLite persistance** : 30+ jours historique
+
+### Phase 7: LIVE Dashboard en Temps Réel ✅ NEW!
+- ✅ **⚡ LIVE TRADING** : Nouveau onglet de monitoring temps réel
+- ✅ **Affichage tokens** : Vois exactement quels tokens trade chaque trader
+- ✅ **Updates 1 seconde** : Polling continu pour données fraîches
+- ✅ **Indicateurs visuels** :
+  - 🟢 Vert = Trader rentable
+  - 🔴 Rouge = Trader en perte
+- ✅ **Actions rapides** :
+  - 💰 [SORTIR TOUT] = Ferme toutes les positions du trader
+  - ❌ [DÉSACTIVER] = Arrête ce trader immédiatement
+- ✅ **Stats en direct** : PnL 24h, Win Rate, positions, portefeuille
+- ✅ **7 onglets UI** : Dashboard, LIVE TRADING, Traders, Backtesting, Benchmark, Paramètres, Historique
+- ✅ **Code Audit Complet** :
+  - 7 protections division par zéro
+  - 5 clauses except correctes (exception handling amélioré)
+  - Zéro erreur détectée
 
 ---
 
@@ -377,16 +413,24 @@ Les contributions sont bienvenues ! Pour proposer une amélioration :
 - Calcule le **PnL réel** de la simulation
 - Support complet **MODE TEST** avec données réelles + exécution simulée
 
-### Phase 6 - Backtesting, Benchmark & Auto Sell ✅ NEW!
+### Phase 6 - Backtesting, Benchmark & Auto Sell ✅
 - **backtesting_engine.py** : 30+ combinaisons TP/SL testables
 - **benchmark_system.py** : Classement Bot vs Traders avec médailles
 - **auto_sell_manager.py** : Vente automatique + Mode Mirror
 - **6 onglets UI** : Interface complète intégrée
 - **SQLite persistence** : Historique complet 30+ jours
 
+### Phase 7 - LIVE Dashboard en Temps Réel ✅
+- **⚡ LIVE TRADING** : Monitoring temps réel avec polling 1s
+- **Affichage tokens** : Voir les tokens tradés en direct
+- **Indicateurs visuels** : 🟢 Rentable / 🔴 En perte
+- **Actions rapides** : Sortir tout / Désactiver trader
+- **7 onglets UI** : Interface optimisée
+- **Code Audit** : 12 bugs corrigés, exception handling amélioré
+
 ## ⚡ Roadmap Futur
 
-### Phase 7+ (Possibilités)
+### Phase 8+ (Possibilités)
 - [ ] Prédictions ML / Trading signals
 - [ ] Support de multiples blockchains
 - [ ] Intégrations API tierces (Telegram, Discord alertes)
@@ -402,12 +446,14 @@ Créer un bot de copy trading simple et sécurisé pour débutants qui veulent a
 ---
 
 **Dernière mise à jour** : 24 novembre 2025  
-**Version** : 4.0.0 (Phases 1-6 Complétées - Backtesting, Benchmark & Auto Sell)  
+**Version** : 5.0.0 (Phases 1-7 Complétées - LIVE Dashboard + Audit Code)  
 **Statut** : ✅ Production-Ready  
 **Mode TEST** : ✅ Vraies données + Exécution simulée (1000$ fictifs)  
 **Auto Sell** : ✅ Automatique + Respect TP/SL + Mode Mirror  
 **Backtesting** : ✅ 30+ paramètres testables  
 **Benchmark** : ✅ Classement Bot vs Traders  
+**LIVE Dashboard** : ✅ Monitoring temps réel + Affichage tokens + Actions rapides  
+**Code Quality** : ✅ Audit complet (12 bugs corrigés)  
 **Plateforme** : ✅ macOS, Linux, Windows  
 **Licence** : Personnel - Non-Commercial
 
