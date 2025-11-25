@@ -75,16 +75,29 @@ def start_tracking():
     except Exception as e:
         print(f"⚠️ Websocket Helius non disponible: {e}")
     
+    last_log_time = 0  # Pour afficher les logs de debug périodiquement
+    
     while True:
+        current_time = time.time()
+        
+        # Log de debug toutes les 20 secondes
+        if current_time - last_log_time > 20:
+            bot_status = "✅ ACTIVÉ" if backend.is_running else "❌ INACTIF"
+            active_traders = sum(1 for t in backend.data.get('traders', []) if t.get('active'))
+            print(f"🔍 État bot: {bot_status} | Traders actifs: {active_traders} | Mode: {backend.data.get('mode', 'TEST')}")
+            last_log_time = current_time
+        
         if backend.is_running:
             portfolio_tracker.track_all_wallets()
             portfolio_tracker.update_bot_portfolio()
             
             # Simuler les trades des traders actifs (MODE TEST)
             if backend.data.get('mode') == 'TEST':
-                for trader in backend.data.get('traders', []):
-                    if trader.get('active'):
-                        trader_name = trader['name']
+                active_traders = [t for t in backend.data.get('traders', []) if t.get('active')]
+                
+                for trader in active_traders:
+                    trader_name = trader['name']
+                    try:
                         # Récupérer plus de trades pour voir les nouveaux
                         trades = copy_trading_simulator.get_trader_recent_trades(trader['address'], limit=20)
                         
@@ -110,6 +123,9 @@ def start_tracking():
                                 out_mint = trade.get('out_mint', '?')
                                 token_symbol = out_mint[-8:] if out_mint and len(out_mint) > 8 else out_mint
                                 print(f"  → Copié: {token_symbol} | Capital: ${capital_alloc}")
+                    except Exception as e:
+                        print(f"⚠️ Erreur détection {trader_name}: {e}")
+        
         time.sleep(5)  # ⚡ Vérifier toutes les 5 secondes (ultra-rapide pour meme coins)
 
 tracking_thread = threading.Thread(target=start_tracking, daemon=True)
