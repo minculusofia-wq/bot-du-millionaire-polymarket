@@ -20,7 +20,8 @@ class HeliosWebsocketListener:
     
     def __init__(self):
         self.api_key = os.getenv('HELIUS_API_KEY')
-        self.wss_url = f"wss://api-mainnet.helius-rpc.com/ws?api-key={self.api_key}"
+        # Format correct du websocket Helius selon doc officielle
+        self.wss_url = f"wss://api-mainnet.helius-rpc.com/?api-key={self.api_key}"
         self.subscriptions = {}  # {trader_address: callback_func}
         self.is_running = False
         self.websocket = None

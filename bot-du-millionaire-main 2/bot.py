@@ -98,8 +98,8 @@ def start_tracking():
                 for trader in active_traders:
                     trader_name = trader['name']
                     try:
-                        # Récupérer plus de trades pour voir les nouveaux
-                        trades = copy_trading_simulator.get_trader_recent_trades(trader['address'], limit=20)
+                        # Récupérer les DERNIERS trades seulement (optimisé: limit 5 au lieu de 20)
+                        trades = copy_trading_simulator.get_trader_recent_trades(trader['address'], limit=5)
                         
                         # Filtrer les trades déjà copiés (eviter les doublons)
                         new_trades = []
@@ -126,7 +126,7 @@ def start_tracking():
                     except Exception as e:
                         print(f"⚠️ Erreur détection {trader_name}: {e}")
         
-        time.sleep(5)  # ⚡ Vérifier toutes les 5 secondes (ultra-rapide pour meme coins)
+        time.sleep(1)  # ⚡ Vérifier TOUTES LES 1 SECONDE (ultra-rapide pour meme coins) - OPTIMISÉ
 
 tracking_thread = threading.Thread(target=start_tracking, daemon=True)
 tracking_thread.start()
