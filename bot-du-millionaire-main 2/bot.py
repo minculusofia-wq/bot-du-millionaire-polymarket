@@ -1627,48 +1627,35 @@ def api_benchmark():
 
 @app.route('/api/benchmark_ranking', methods=['GET'])
 def api_benchmark_ranking():
-    """Classement bot vs traders - DONNÉES RÉELLES"""
+    """Classement TRADERS SEULEMENT - pour choisir les meilleurs"""
     try:
-        # Calcul du PnL du BOT
-        bot_pnl = backend.get_total_pnl_percent()
-        
         # Récupérer TOUS les traders avec leurs performances
-        ranking = []
-        
-        # Ajouter le BOT en premier pour reference
-        bot_entry = {
-            'rank': None,  # A calculer
-            'name': '🤖 Bot du Millionnaire',
-            'pnl': bot_pnl,
-            'win_rate': 0.0
-        }
-        
-        # Ajouter tous les traders
         traders_entries = []
         for trader in backend.data['traders']:
             perf = portfolio_tracker.get_trader_performance(trader['address'])
             traders_entries.append({
                 'name': f"{trader['emoji']} {trader['name']}",
-                'pnl': perf['pnl_7d'],  # PnL 7 jours
-                'win_rate': 0.0
+                'address': trader['address'],
+                'pnl': perf.get('pnl_7d', 0.0),  # PnL 7 jours
+                'pnl_24h': perf.get('pnl_24h', 0.0),  # PnL 24h
+                'win_rate': perf.get('win_rate', 0.0)
             })
         
-        # Trier tous les participants (BOT + traders) par PnL descendant
-        all_entries = [bot_entry] + traders_entries
-        all_entries.sort(key=lambda x: x['pnl'], reverse=True)
+        # Trier les traders par PnL descendant
+        traders_entries.sort(key=lambda x: x['pnl'], reverse=True)
         
         # Assigner les rangs
-        for rank, entry in enumerate(all_entries, 1):
+        for rank, entry in enumerate(traders_entries, 1):
             entry['rank'] = rank
         
-        return jsonify({'ranking': all_entries})
+        return jsonify({'ranking': traders_entries})
     except Exception as e:
         print(f"❌ Erreur benchmark_ranking: {e}")
-        # Fallback ranking
+        # Fallback ranking avec traders seulement
         return jsonify({'ranking': [
-            {'rank': 1, 'name': '🤖 Bot du Millionnaire', 'pnl': 0.0, 'win_rate': 0.0},
-            {'rank': 2, 'name': '🇯🇵 Japon', 'pnl': 0.0, 'win_rate': 0.0},
-            {'rank': 3, 'name': '⭐ Starter', 'pnl': 0.0, 'win_rate': 0.0}
+            {'rank': 1, 'name': '🚀 Japon', 'pnl': 0.0, 'win_rate': 0.0},
+            {'rank': 2, 'name': '⚡ Starter', 'pnl': 0.0, 'win_rate': 0.0},
+            {'rank': 3, 'name': '🧈 Euris', 'pnl': 0.0, 'win_rate': 0.0}
         ]})
 
 @app.route('/api/benchmark_summary', methods=['GET'])
