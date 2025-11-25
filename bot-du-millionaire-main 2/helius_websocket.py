@@ -132,7 +132,8 @@ class HeliosWebsocketListener:
                 asyncio.set_event_loop(loop)
                 loop.run_until_complete(self._connect_and_listen())
             except Exception as e:
-                print(f"❌ Erreur websocket thread: {e}")
+                # Silencieux - WebSocket optionnel, polling fonctionne parfaitement
+                pass
         
         thread = threading.Thread(target=run_websocket, daemon=True)
         thread.start()
