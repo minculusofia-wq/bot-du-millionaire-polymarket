@@ -1193,29 +1193,32 @@ def api_status():
 
 @app.route('/api/traders_performance')
 def api_traders_performance():
-    """Retourne les performances des TRADERS ACTIFS UNIQUEMENT"""
+    """Retourne les performances de TOUS LES TRADERS du wallet tracker"""
     performance = []
     
-    # ✅ Afficher SEULEMENT les traders ACTIFS qu'on copie
-    # Les traders inactifs n'ont pas besoin d'être affichés
+    # ✅ Afficher TOUS les traders du wallet tracker (actifs ET inactifs)
+    # Les traders actifs affichent aussi le PnL du BOT (copies)
     
     for trader in backend.data['traders']:
         is_active = trader.get('active')
         
-        # N'afficher que les traders ACTIFS
-        if not is_active:
-            continue
-        
-        # TRADER ACTIF: Récupérer le PnL du BOT
-        trader_pnl_data = auto_sell_manager.get_trader_pnl(trader['name'])
-        pnl_display = trader_pnl_data['pnl']
-        pnl_percent_display = trader_pnl_data['pnl_percent']
-        
         # Récupérer infos wallet pour le solde actuel
         perf = portfolio_tracker.get_trader_performance(trader['address'])
         
+        if is_active:
+            # TRADER ACTIF: Récupérer aussi le PnL du BOT (copies)
+            trader_pnl_data = auto_sell_manager.get_trader_pnl(trader['name'])
+            pnl_display = trader_pnl_data['pnl']
+            pnl_percent_display = trader_pnl_data['pnl_percent']
+            trader_label = f"✅ {trader['emoji']} {trader['name']}"
+        else:
+            # TRADER INACTIF: Afficher seulement ses performances wallet
+            pnl_display = 0
+            pnl_percent_display = 0
+            trader_label = f"❌ {trader['emoji']} {trader['name']}"
+        
         performance.append({
-            'trader': f"✅ {trader['emoji']} {trader['name']}",
+            'trader': trader_label,
             'current_value': f"${perf['current_value']:.2f}",
             'pnl': f"{pnl_display:.2f}",
             'pnl_percent': f"{pnl_percent_display:.2f}",
@@ -1223,7 +1226,7 @@ def api_traders_performance():
             'pnl_24h_percent': f"{perf['pnl_24h_percent']:.2f}",
             'pnl_7d': f"{perf['pnl_7d']:.2f}",
             'pnl_7d_percent': f"{perf['pnl_7d_percent']:.2f}",
-            'active': True
+            'active': is_active
         })
     
     return jsonify(performance)
