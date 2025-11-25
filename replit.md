@@ -9,6 +9,20 @@ Bot du Millionnaire is an automated Solana copy trading application designed to 
 Preferred communication style: Simple, everyday language.
 Preferred communication language: Français (French)
 
+## Recent Changes (Session Nov 25, 2025)
+
+### UI Enhancements
+- ✅ **Nouvel onglet "📊 Positions Ouvertes"**: Onglet dédié pour afficher toutes les positions ouvertes en temps réel
+- ✅ **Dashboard solde dynamique**: Affiche $0 sans clé privée, solde réel du wallet quand clé fournie
+- ✅ **Benchmark opérationnel**: Endpoint `/api/benchmark` utilise vraies données (PnL traders vs bot)
+- ✅ **Tous les traders affichés**: Dashboard affiche les 10 traders du wallet tracker (actifs + inactifs)
+- ✅ **PnL complet**: Tous les traders affichent PnL Total, 24h, 7j avec code couleur (vert/rouge)
+
+### Code Quality
+- Dashboard positions relocated from Settings to dedicated tab (no code breakage)
+- JavaScript parsing fixed: String to numeric conversion for color coding
+- API endpoints refactored: benchmark, benchmark_ranking, benchmark_summary now return real data
+
 ## System Architecture
 
 ### Frontend Architecture

@@ -334,6 +334,7 @@ HTML_TEMPLATE = """
             <button class="nav-btn active" onclick="showSection('dashboard')">Tableau de Bord</button>
             <button class="nav-btn" onclick="showSection('live')">⚡ LIVE TRADING</button>
             <button class="nav-btn" onclick="showSection('traders')">Gestion Traders</button>
+            <button class="nav-btn" onclick="showSection('positions')">📊 Positions Ouvertes</button>
             <button class="nav-btn" onclick="showSection('backtesting')">🎮 Backtesting</button>
             <button class="nav-btn" onclick="showSection('benchmark')">🏆 Benchmark</button>
             <button class="nav-btn" onclick="showSection('settings')">Paramètres & Sécurité</button>
@@ -526,11 +527,6 @@ HTML_TEMPLATE = """
                     </ul>
                 </div>
                 <div class="card">
-                    <h2>📊 Positions Ouvertes</h2>
-                    <div id="open_positions_list" style="margin-bottom: 20px;"></div>
-                    <button class="btn" onclick="refreshPositions()" style="width: 100%; margin-bottom: 10px;">🔄 Rafraîchir Positions</button>
-                    
-                    <div class="divider"></div>
                     <h2>🔐 Configuration & Sécurité</h2>
                     <p>Wallet Connecté: <span id="wallet_addr" style="color: #00E676;">Aucun</span></p>
                     <div class="param-group">
@@ -564,6 +560,16 @@ HTML_TEMPLATE = """
                         <p style="color: #999; text-align: center;">Chargement...</p>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- POSITIONS OUVERTES -->
+        <div id="positions" class="section">
+            <div class="card">
+                <h2>📊 Positions Ouvertes en Temps Réel</h2>
+                <p style="color: #aaa; margin-bottom: 15px;">Toutes les positions actuellement ouvertes depuis vos traders actifs</p>
+                <button class="btn" onclick="refreshPositions()" style="width: 100%; margin-bottom: 15px;">🔄 Rafraîchir Positions</button>
+                <div id="open_positions_list" style="margin-bottom: 20px;"></div>
             </div>
         </div>
 
