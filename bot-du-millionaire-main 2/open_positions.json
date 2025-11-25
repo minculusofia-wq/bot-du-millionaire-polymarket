@@ -17,5 +17,24 @@
     "exit_time": null,
     "exit_price": null,
     "sell_type": null
+  },
+  "Japon_1764068027.727381": {
+    "position_id": "Japon_1764068027.727381",
+    "trader_name": "Japon",
+    "entry_price": 3.476889019758001e-24,
+    "amount": 3325621.902262,
+    "entry_time": "2025-11-25T10:53:47.727395",
+    "status": "OPEN",
+    "current_price": 3.476889019758001e-24,
+    "pnl": 0,
+    "pnl_percent": 0,
+    "tp_target": 28.333333333333332,
+    "sl_target": 5,
+    "tp_price": 4.462007575356101e-24,
+    "sl_price": 3.303044568770101e-24,
+    "sell_reason": null,
+    "exit_time": null,
+    "exit_price": null,
+    "sell_type": null
   }
 }
