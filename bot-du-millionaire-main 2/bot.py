@@ -531,6 +531,7 @@ HTML_TEMPLATE = """
                 document.getElementById('active_count').textContent = data.active_traders + '/3';
                 document.getElementById('slippage_val').textContent = data.slippage;
                 document.getElementById('active_traders_count').textContent = data.active_traders;
+                document.getElementById('total_trades').textContent = data.active_traders;
                 document.getElementById('total_capital_display').textContent = '$' + data.total_capital;
                 
                 // ✅ AFFICHER LE PnL TOTAL ET PERFORMANCE BOT
