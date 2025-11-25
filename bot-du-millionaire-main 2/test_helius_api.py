@@ -77,7 +77,8 @@ for trader in traders:
             print(f"   ❌ Erreur HTTP {response.status_code}: {result}")
             continue
         
-        transactions = result.get('transactions', [])
+        # L'API retourne directement une LISTE
+        transactions = result if isinstance(result, list) else result.get('transactions', [])
         print(f"   ✅ {len(transactions)} transactions trouvées")
         
         if len(transactions) == 0:
@@ -87,19 +88,14 @@ for trader in traders:
         # Parser les 3 premières transactions
         print(f"   → Analyse des 3 premières transactions:")
         
-        for i, tx_sig in enumerate(transactions[:3]):
-            print(f"\n      Transaction #{i+1}: {tx_sig[:20]}...")
-            
-            # Récupérer les détails
-            parse_url = f"https://api-mainnet.helius-rpc.com/v0/transactions/?api-key={helius_key}"
-            parse_response = requests.post(parse_url, json={"transactions": [tx_sig]}, timeout=10)
-            parse_result = parse_response.json()
-            
-            if 'transactions' not in parse_result or not parse_result['transactions']:
-                print(f"         ❌ Erreur parsing transaction")
+        for i, tx in enumerate(transactions[:3]):
+            # Les transactions viennent déjà parsées de l'API
+            tx_data = tx if isinstance(tx, dict) else None
+            if not tx_data:
+                print(f"\n      Transaction #{i+1}: ❌ Erreur - pas un dict")
                 continue
-            
-            tx_data = parse_result['transactions'][0]
+                
+            print(f"\n      Transaction #{i+1}: {tx_data.get('description', '?')[:30]}...")
             tx_type = tx_data.get('type', 'UNKNOWN')
             
             print(f"         Type: {tx_type}")

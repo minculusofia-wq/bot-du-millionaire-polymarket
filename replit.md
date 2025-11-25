@@ -8,6 +8,37 @@ Bot du Millionnaire is an automated Solana copy trading application that monitor
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Updates (Phase 9 - Helius API Integration Complete)
+
+### 🚀 Phase 9: Full Helius API Integration (November 25, 2025)
+
+**Helius API Successfully Integrated! 🎉**
+
+**What was fixed:**
+1. ✅ **API Response Format**: Adapted code to handle Helius returning direct transaction list (not wrapped in dict)
+2. ✅ **Transaction Parsing**: Fixed parsing to accept pre-parsed transaction objects from Helius
+3. ✅ **`.env` Configuration**: Bot now loads Helius API keys from `.env` file automatically
+4. ✅ **Diagnostic Tool**: Created `test_helius_api.py` script to verify API connectivity and detect SWAPs
+5. ✅ **Status Verification**: Bot shows "✅ Helius API Key: Configurée" at startup
+
+**Test Results:**
+- ✅ **Euris**: 98 transactions found
+- ✅ **Starter**: 96 transactions found, **1 SWAP DETECTED** 
+- ✅ **Italie**: 100 transactions found
+
+**Files Created/Modified:**
+- `copy_trading_simulator.py`: Updated `get_trader_recent_trades()` to parse Helius list format
+- `test_helius_api.py`: Diagnostic script for testing API and SWAP detection
+- `.env`: Helius API key configuration file
+- `SETUP_LOCAL.md`: Documentation for local setup
+
+**How It Works Now:**
+1. Bot starts → loads `.env` with `HELIUS_API_KEY`
+2. For each active trader → fetches transactions from Helius
+3. Identifies SWAP transactions automatically
+4. Simulates trades with virtual capital in TEST mode
+5. Displays PnL in dashboard
+
 ## Recent Updates (Phase 8 - Local Setup + Trade Detection Fix)
 
 ### 🔧 Phase 8: Trade Detection Infrastructure (November 24, 2025)

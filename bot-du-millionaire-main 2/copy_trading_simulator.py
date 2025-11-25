@@ -101,14 +101,15 @@ class CopyTradingSimulator:
             response = requests.get(url, timeout=10)
             result = response.json()
             
-            transactions = result.get('transactions', [])
+            # L'API retourne directement une LISTE de transactions
+            transactions = result if isinstance(result, list) else result.get('transactions', [])
             if not transactions:
                 return []
             
             # Parser les transactions pour identifier les swaps
             trades = []
-            for tx_sig in transactions[:limit]:
-                swap_data = self._parse_swap_transaction(tx_sig)
+            for tx_data in transactions[:limit]:
+                swap_data = self._parse_swap_transaction(tx_data)
                 if swap_data:
                     trades.append(swap_data)
             
@@ -117,18 +118,19 @@ class CopyTradingSimulator:
             print(f"❌ Erreur récupération trades Helius: {e}")
             return []
     
-    def _parse_swap_transaction(self, tx_signature: str) -> Optional[Dict]:
+    def _parse_swap_transaction(self, tx_data: Dict) -> Optional[Dict]:
         """Parse une transaction Solana pour extraire les infos de swap"""
         try:
-            # Récupérer la transaction via Helius
-            url = f"https://api-mainnet.helius-rpc.com/v0/transactions/?api-key={self.helius_api_key}"
-            response = requests.post(url, json={"transactions": [tx_signature]}, timeout=10)
-            result = response.json()
-            
-            if not result.get('transactions'):
-                return None
-            
-            tx_data = result['transactions'][0]
+            # Si c'est une chaîne (signature), la récupérer via l'API
+            if isinstance(tx_data, str):
+                url = f"https://api-mainnet.helius-rpc.com/v0/transactions/?api-key={self.helius_api_key}"
+                response = requests.post(url, json={"transactions": [tx_data]}, timeout=10)
+                result = response.json()
+                
+                if not result.get('transactions'):
+                    return None
+                
+                tx_data = result['transactions'][0]
             
             # Vérifier que c'est un SWAP
             if tx_data.get('type') != 'SWAP':
@@ -143,7 +145,7 @@ class CopyTradingSimulator:
             out_token = token_transfers[1]
             
             swap = {
-                'signature': tx_signature,
+                'signature': tx_data.get('signature', tx_data.get('description', 'unknown'))[:64],
                 'timestamp': tx_data.get('timestamp', datetime.now().isoformat()),
                 'type': 'SWAP',
                 'source': tx_data.get('source', 'Unknown'),  # DEX (Raydium, Orca, Jupiter, etc)
@@ -157,7 +159,7 @@ class CopyTradingSimulator:
             
             return swap
         except Exception as e:
-            print(f"⚠️ Erreur parsing swap {tx_signature}: {e}")
+            print(f"⚠️ Erreur parsing swap: {e}")
             return None
     
     def calculate_slippage_percent(self, trade: Dict) -> float:
