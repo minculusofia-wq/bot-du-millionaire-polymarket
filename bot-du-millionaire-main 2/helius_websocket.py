@@ -20,13 +20,20 @@ class HeliosWebsocketListener:
     
     def __init__(self):
         self.api_key = os.getenv('HELIUS_API_KEY')
-        # Format correct du websocket Helius selon doc officielle
-        self.wss_url = f"wss://api-mainnet.helius-rpc.com/?api-key={self.api_key}"
+        # Tester les différents formats WSS Helius
+        # Format 1 (principal): avec /v0/
+        self.wss_urls = [
+            f"wss://api-mainnet.helius-rpc.com/v0/?api-key={self.api_key}",
+            f"wss://api-mainnet.helius-rpc.com/?api-key={self.api_key}",
+            f"wss://api-mainnet.helius-rpc.com/ws?api-key={self.api_key}"
+        ]
+        self.wss_url = self.wss_urls[0]  # Start with primary
         self.subscriptions = {}  # {trader_address: callback_func}
         self.is_running = False
         self.websocket = None
         self.reconnect_delay = 5
         self.max_retries = 5
+        self.url_index = 0  # Track which URL we're trying
         
         if not self.api_key:
             print("⚠️ HELIUS_API_KEY non définie - websocket Helius désactivé")
@@ -52,7 +59,9 @@ class HeliosWebsocketListener:
         
         while self.is_running and retry_count < self.max_retries:
             try:
-                print(f"🔌 Connexion websocket Helius... (tentative {retry_count + 1})")
+                # Essayer les différents formats WSS
+                self.wss_url = self.wss_urls[self.url_index % len(self.wss_urls)]
+                print(f"🔌 Connexion websocket Helius... (tentative {retry_count + 1}, URL format {self.url_index + 1})")
                 
                 async with websockets.connect(self.wss_url) as websocket:
                     self.websocket = websocket
@@ -98,8 +107,12 @@ class HeliosWebsocketListener:
                 break
             except Exception as e:
                 retry_count += 1
+                # Essayer URL suivante après 2 tentatives
+                if retry_count % 2 == 0:
+                    self.url_index += 1
+                
                 if self.is_running:
-                    print(f"⚠️ Erreur websocket (retry {retry_count}/{self.max_retries}): {str(e)[:100]}")
+                    print(f"⚠️ Erreur websocket (retry {retry_count}/{self.max_retries}): {str(e)[:80]}")
                     if retry_count < self.max_retries:
                         await asyncio.sleep(self.reconnect_delay)
                 self.websocket = None
