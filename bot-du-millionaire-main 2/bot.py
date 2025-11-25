@@ -102,9 +102,6 @@ def start_tracking():
                         # Récupérer les DERNIERS trades seulement (optimisé: limit 5 au lieu de 20)
                         trades = copy_trading_simulator.get_trader_recent_trades(trader_addr, limit=5)
                         
-                        # DEBUG: Afficher le nombre de trades trouvés
-                        print(f"🔍 DEBUG {trader_name}: {len(trades) if trades else 0} trades trouvés")
-                        
                         # Filtrer les trades déjà copiés (eviter les doublons)
                         new_trades = []
                         for trade in trades:
@@ -115,9 +112,13 @@ def start_tracking():
                                 new_trades.append(trade)
                                 copied_trades_history[trader_key] = datetime.now().isoformat()
                         
+                        # Afficher le statut (nouveau ou suivi)
                         if new_trades:
                             print(f"✅ {len(new_trades)} NOUVEAUX trades pour {trader_name}")
                             save_copied_trades_history()
+                        else:
+                            total_copied = sum(1 for k in copied_trades_history if k.startswith(f"{trader_name}_"))
+                            print(f"📊 {trader_name}: Suivi actif ({total_copied} trades copiés)")
                         
                         for trade in new_trades:
                             capital_alloc = trader.get('capital', 100)
