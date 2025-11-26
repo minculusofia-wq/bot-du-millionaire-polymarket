@@ -1,10 +1,71 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+*.pyo
+*.pyd
 build/
 dist/
 wheels/
 *.egg-info
+*.egg
 
 # Virtual environments
 .venv
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (runtime generated)
+*.db
+*.sqlite
+*.sqlite3
+bot_data.db
+copied_trades_history.json
+portfolio_tracker.json
+open_positions.json
+
+# Logs
+*.log
+audit_logs/
+logs/
+
+# Archives and backups
+*.tar.gz
+*.zip
+*.rar
+*.7z
+*backup*
+*-backup/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Assets (screenshots, etc.)
+attached_assets/
+screenshots/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.rtf
+
+# Sensitive files (never commit)
+.env
+*.key
+*.pem
+credentials.json
+secrets.json
+config.local.json
