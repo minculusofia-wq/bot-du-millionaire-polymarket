@@ -1,5 +1,4 @@
 {
-    "mode": "REAL",
     "slippage": 50.9,
     "active_traders_limit": 3,
     "currency": "USD",

@@ -75,8 +75,7 @@ ws_handler.init_app(app, socketio)
 import os
 helius_key = os.getenv('HELIUS_API_KEY')
 print(f"{'='*60}")
-print(f"✅ BOT PRÊT À DÉMARRER")
-print(f"Mode: {backend.data.get('mode', 'TEST')}")
+print(f"✅ BOT PRÊT À DÉMARRER (MODE REAL)")
 print(f"Helius API Key: {'✅ Configurée' if helius_key else '❌ NON configurée'}")
 print(f"Traders actifs: {sum(1 for t in backend.data.get('traders', []) if t.get('active'))}")
 print(f"Bot activé: {'✅ OUI' if backend.is_running else '❌ NON'}")
@@ -242,8 +241,7 @@ def start_tracking():
         if current_time - last_log_time > 30:
             bot_status = "✅ ACTIVÉ" if backend.is_running else "❌ INACTIF"
             active_traders = sum(1 for t in backend.data.get('traders', []) if t.get('active'))
-            mode_info = "REAL" if backend.data.get('mode') == 'REAL' else "TEST"
-            print(f"🔍 État bot: {bot_status} | Traders actifs: {active_traders} | Mode: {mode_info}")
+            print(f"🔍 État bot: {bot_status} | Traders actifs: {active_traders}")
             last_log_time = current_time
         
         if backend.is_running:
@@ -288,57 +286,7 @@ def start_tracking():
                         pass
                 
                 last_fallback_check = current_time
-            
-            # Simuler les trades des traders actifs (MODE TEST)
-            if backend.data.get('mode') == 'TEST':
-                active_traders = [t for t in backend.data.get('traders', []) if t.get('active')]
-                
-                for trader in active_traders:
-                    trader_name = trader['name']
-                    trader_addr = trader['address']
-                    try:
-                        # Récupérer les DERNIERS trades seulement (limit 3 pour performance)
-                        trades = copy_trading_simulator.get_trader_recent_trades(trader_addr, limit=3)
-                        
-                        # Filtrer les trades déjà copiés (thread-safe)
-                        new_trades = []
-                        with copied_trades_lock:
-                            for trade in trades:
-                                trade_sig = trade.get('signature', '')
-                                trader_key = f"{trader_name}_{trade_sig}"
 
-                                if trader_key not in copied_trades_history:
-                                    new_trades.append(trade)
-                                    copied_trades_history[trader_key] = datetime.now().isoformat()
-                        
-                        # Afficher le statut
-                        if new_trades:
-                            print(f"✅ {len(new_trades)} NOUVEAUX trades pour {trader_name}")
-                            save_copied_trades_history()
-                        
-                        for trade in new_trades:
-                            capital_alloc = trader.get('capital', 100)
-                            if capital_alloc > 0:
-                                # Simuler le trade avec retry
-                                result = copy_trading_simulator.simulate_trade_for_trader(trader_name, trade, capital_alloc)
-                                
-                                # Enregistrer la position
-                                if result.get('status') == 'success':
-                                    execution = result.get('execution', {})
-                                    out_amount = execution.get('out_amount_after_slippage', 0)
-                                    simulated_usd = execution.get('simulated_amount_usd', 0)
-                                    
-                                    entry_price_usd = simulated_usd / out_amount if out_amount > 0 else 0
-                                    
-                                    if entry_price_usd > 0 and out_amount > 0:
-                                        auto_sell_manager.open_position(trader_name, entry_price_usd, out_amount)
-                                
-                                out_mint = trade.get('out_mint', '?')
-                                token_symbol = out_mint[-8:] if out_mint and len(out_mint) > 8 else out_mint
-                                print(f"  → Copié: {token_symbol} | Capital: ${capital_alloc}")
-                    except Exception as e:
-                        print(f"⚠️ Erreur détection {trader_name}: {str(e)[:60]}")
-        
         time.sleep(2)  # ⚡ Vérifier TOUTES LES 2 SECONDES (polling optimisé)
 
 tracking_thread = threading.Thread(target=start_tracking, daemon=True)
@@ -454,7 +402,6 @@ HTML_TEMPLATE = """
                     <h2>📊 Performance en Temps Réel</h2>
                     <div class="big-value" id="portfolio">$1000.00</div>
                     <p>Status: <span id="status" class="status off">BOT DÉSACTIVÉ</span></p>
-                    <p>Mode: <span id="mode" class="mode-badge">TEST</span></p>
                     <p>WebSocket Helius: <span id="websocket_status" class="status off">❌ Déconnecté</span></p>
                     <button class="btn" onclick="toggleBot()">Activer/Désactiver Bot</button>
                     
@@ -803,7 +750,6 @@ HTML_TEMPLATE = """
                 const status = document.getElementById('status');
                 status.textContent = data.running ? 'BOT ACTIVÉ' : 'BOT DÉSACTIVÉ';
                 status.className = data.running ? 'status on' : 'status off';
-                document.getElementById('mode').textContent = data.mode;
                 document.getElementById('active_count').textContent = data.active_traders + '/3';
                 document.getElementById('slippage_val').textContent = data.slippage;
                 document.getElementById('active_traders_count').textContent = data.active_traders;
@@ -1379,12 +1325,8 @@ def index():
 
 @app.route('/api/status')
 def api_status():
-    # En REAL mode: afficher le solde du wallet, sinon utiliser total_capital du config
-    mode = backend.data.get('mode', 'TEST')
-    if mode == 'REAL':
-        total_capital = backend.get_wallet_balance_dynamic()
-    else:
-        total_capital = backend.data.get('total_capital', 1000)
+    # Utiliser le solde du wallet
+    total_capital = backend.get_wallet_balance_dynamic()
 
     # Statut du WebSocket Helius
     websocket_status = {
@@ -1398,7 +1340,6 @@ def api_status():
         'pnl_total': backend.get_total_pnl(),
         'pnl_percent': backend.get_total_pnl_percent(),
         'running': backend.is_running,
-        'mode': mode,
         'active_traders': backend.get_active_traders_count(),
         'traders': backend.data['traders'],
         'slippage': backend.data.get('slippage', 1.0),
@@ -1463,12 +1404,6 @@ def api_update_params():
     if slippage:
         backend.data['slippage'] = slippage
         backend.save_config()
-    return jsonify({'status': 'ok'})
-
-@app.route('/api/switch_mode')
-def api_switch_mode():
-    backend.data['mode'] = 'REEL' if backend.data['mode'] == 'TEST' else 'TEST'
-    backend.save_config()
     return jsonify({'status': 'ok'})
 
 @app.route('/api/save_key', methods=['POST'])
