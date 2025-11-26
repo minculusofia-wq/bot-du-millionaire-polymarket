@@ -12,6 +12,7 @@ import requests
 from typing import Optional, Dict, List, Callable
 from datetime import datetime, timedelta
 from collections import defaultdict
+from worker_threads import worker_pool  # ✅ Phase B1: Import Worker Pool
 
 
 class HeliusPollingListener:
@@ -179,17 +180,32 @@ class HeliusPollingListener:
     
     def _polling_loop(self):
         """Boucle de polling"""
-        print("🔄 Polling Helius démarré (5s interval)")
-        
+        print("🔄 Polling Helius démarré (5s interval) - Worker Pool activé")
+
         while self.is_running:
             try:
-                # Poll chaque trader
-                for trader_address in list(self.subscriptions.keys()):
-                    self._poll_trader(trader_address)
-                
+                # ✅ Phase B1: Paralléliser avec Worker Pool (5x plus rapide)
+                trader_addresses = list(self.subscriptions.keys())
+
+                if trader_addresses:
+                    # Créer les tâches pour Worker Pool
+                    tasks = [
+                        {
+                            'trader': trader_address,
+                            'callback': self._poll_trader,
+                            'args': []
+                        }
+                        for trader_address in trader_addresses
+                    ]
+
+                    # Exécuter en parallèle (1s au lieu de 5s pour 5 traders)
+                    results = worker_pool.submit_batch_tasks(tasks)
+
+                    # Les erreurs sont gérées dans _poll_trader individuellement
+
                 # Attendre avant le prochain cycle
                 time.sleep(self.poll_interval)
-            
+
             except Exception as e:
                 print(f"❌ Erreur polling loop: {e}")
                 time.sleep(self.poll_interval)

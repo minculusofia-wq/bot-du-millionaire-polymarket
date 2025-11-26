@@ -14,6 +14,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import json
+from cache_manager import cache_manager  # ✅ Phase A1: Import cache manager
 
 
 class TokenFilter:
@@ -30,9 +31,7 @@ class TokenFilter:
             'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',  # USDT
         }
 
-        # Cache de liquidité (token_address -> liquidity_usd)
-        self.liquidity_cache = {}
-        self.liquidity_cache_ttl = 300  # 5 min
+        # ✅ Phase A1: Cache de liquidité géré par cache_manager (pas de cache local)
 
     def is_blacklisted(self, token_address: str) -> bool:
         """Vérifie si le token est blacklisté"""
@@ -67,12 +66,11 @@ class TokenFilter:
         if self.is_whitelisted(token_address):
             return (True, 999999)
 
-        # Vérifier le cache
-        if token_address in self.liquidity_cache:
-            cached_data = self.liquidity_cache[token_address]
-            if time.time() - cached_data['timestamp'] < self.liquidity_cache_ttl:
-                liquidity = cached_data['liquidity']
-                return (liquidity >= min_liquidity_usd, liquidity)
+        # ✅ Phase A1: Vérifier le cache_manager (TTL: 5min)
+        cache_key = f"liquidity_{token_address}"
+        cached_liquidity = cache_manager.get(cache_key, namespace="tokens")
+        if cached_liquidity is not None:
+            return (cached_liquidity >= min_liquidity_usd, cached_liquidity)
 
         # ✅ Obtenir la vraie liquidité depuis Jupiter API
         try:
@@ -96,11 +94,8 @@ class TokenFilter:
                 if 'volume24h' in data and data['volume24h']:
                     liquidity_usd = max(liquidity_usd, data['volume24h'] * 0.1)
 
-                # Mettre à jour le cache
-                self.liquidity_cache[token_address] = {
-                    'liquidity': liquidity_usd,
-                    'timestamp': time.time()
-                }
+                # ✅ Phase A1: Mettre en cache avec cache_manager (TTL: 5min)
+                cache_manager.set(cache_key, liquidity_usd, ttl=300, namespace="tokens")
 
                 return (liquidity_usd >= min_liquidity_usd, liquidity_usd)
         except Exception as e:
@@ -108,10 +103,8 @@ class TokenFilter:
 
         # Fallback: estimation conservatrice
         liquidity_usd = 50000
-        self.liquidity_cache[token_address] = {
-            'liquidity': liquidity_usd,
-            'timestamp': time.time()
-        }
+        # ✅ Phase A1: Mettre en cache (TTL: 5min)
+        cache_manager.set(cache_key, liquidity_usd, ttl=300, namespace="tokens")
 
         return (liquidity_usd >= min_liquidity_usd, liquidity_usd)
 
@@ -122,9 +115,7 @@ class TradeScorer:
     def __init__(self):
         self.token_filter = TokenFilter()
 
-        # Cache pour l'âge des tokens
-        self.token_age_cache = {}
-        self.token_age_cache_ttl = 3600  # 1 heure
+        # ✅ Phase A1: Cache géré par cache_manager (pas de cache local)
 
         # Poids des critères (total = 100%)
         self.weights = {
@@ -143,11 +134,11 @@ class TradeScorer:
         Returns:
             Score 0-100 (plus vieux = mieux)
         """
-        # Vérifier le cache
-        if token_address in self.token_age_cache:
-            cached_data = self.token_age_cache[token_address]
-            if time.time() - cached_data['timestamp'] < self.token_age_cache_ttl:
-                return cached_data['score']
+        # ✅ Phase A1: Vérifier le cache_manager (TTL: 1h)
+        cache_key = f"token_age_{token_address}"
+        cached_score = cache_manager.get(cache_key, namespace="tokens")
+        if cached_score is not None:
+            return cached_score
 
         try:
             import requests
@@ -178,18 +169,17 @@ class TradeScorer:
                     else:
                         score = 20   # Moins d'1 semaine = très risqué
 
-                    # Mettre en cache
-                    self.token_age_cache[token_address] = {
-                        'score': score,
-                        'timestamp': time.time()
-                    }
+                    # ✅ Phase A1: Mettre en cache (TTL: 1h)
+                    cache_manager.set(cache_key, score, ttl=3600, namespace="tokens")
 
                     return score
         except Exception as e:
             print(f"⚠️ Erreur calcul âge token {token_address[:8]}: {e}")
 
         # Fallback: score conservateur moyen
-        return 70
+        score = 70
+        cache_manager.set(cache_key, score, ttl=3600, namespace="tokens")
+        return score
 
     def _calculate_volatility_score(self, token_address: str) -> float:
         """

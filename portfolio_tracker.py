@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timedelta
 from bot_logic import BotBackend
 from db_manager import db_manager
+from cache_manager import cache_manager  # ✅ Phase A1: Import cache manager
 
 # Imports conditionnels pour macOS/dev
 try:
@@ -19,8 +20,7 @@ class RealPortfolioTracker:
         self.backend = BotBackend()
         self.rpc_url = self.backend.data.get('rpc_url', 'https://api.mainnet-beta.solana.com')
         self.tracker_data = self._load_tracker_data()
-        self.cache = {}  # Cache pour éviter le rate limiting
-        self.cache_ttl = 300  # 5 minutes de cache (optimisé)
+        # ✅ Phase A1: Remplacé par cache_manager global (pas de cache local)
         self.last_rpc_call = 0
         self.rpc_delay = 0.2  # 200ms entre appels RPC (optimisé de 1s)
         
@@ -51,20 +51,11 @@ class RealPortfolioTracker:
     def get_wallet_value(self, wallet_address):
         """Récupère la valeur totale d'un wallet en USD"""
         try:
-            # Vérifier le cache
-            cache_key = f"wallet_{wallet_address}"
-            if cache_key in self.cache:
-                try:
-                    cache_entry = self.cache[cache_key]
-                    # Vérifier que l'entrée du cache est bien formatée
-                    if isinstance(cache_entry, tuple) and len(cache_entry) == 2:
-                        cache_time, cached_value = cache_entry
-                        if isinstance(cache_time, datetime) and isinstance(cached_value, (int, float)):
-                            if datetime.now() - cache_time < timedelta(seconds=self.cache_ttl):
-                                return float(cached_value)
-                except (TypeError, ValueError) as e:
-                    # Cache corrompu, le supprimer
-                    del self.cache[cache_key]
+            # ✅ Phase A1: Vérifier le cache_manager (TTL: 30s)
+            cache_key = f"wallet_value_{wallet_address}"
+            cached_value = cache_manager.get(cache_key, namespace="wallets")
+            if cached_value is not None:
+                return float(cached_value)
             
             # Valider l'adresse (si Solana disponible)
             if SolanaValidator:
@@ -95,10 +86,10 @@ class RealPortfolioTracker:
             # Calcul total en USD
             total_value_usd = (sol_balance * sol_price_value) + token_value
             total_value_usd = float(total_value_usd)
-            
-            # Mettre en cache
-            self.cache[cache_key] = (datetime.now(), total_value_usd)
-            
+
+            # ✅ Phase A1: Mettre en cache avec cache_manager (TTL: 30s)
+            cache_manager.set(cache_key, total_value_usd, ttl=30, namespace="wallets")
+
             return total_value_usd
             
         except Exception as e:
@@ -108,13 +99,20 @@ class RealPortfolioTracker:
     def _fetch_sol_price(self):
         """Récupère le prix du SOL en USD"""
         try:
+            # ✅ Phase A1: Vérifier cache (TTL: 60s)
+            cached_price = cache_manager.get("sol_price", namespace="prices")
+            if cached_price is not None:
+                return cached_price
+
             response = requests.get(
                 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
                 timeout=5
             )
             sol_price_data = response.json()
             sol_price = sol_price_data.get('solana', {}).get('usd', 100)
-            self.cache["sol_price"] = (datetime.now(), sol_price)
+
+            # ✅ Phase A1: Mettre en cache (TTL: 60s)
+            cache_manager.set("sol_price", sol_price, ttl=60, namespace="prices")
             return sol_price
         except Exception:
             return 100
