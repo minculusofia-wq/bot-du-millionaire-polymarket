@@ -3,7 +3,6 @@
     "active_traders_limit": 3,
     "currency": "USD",
     "total_capital": 1000,
-    "wallet_private_key": "",
     "rpc_url": "https://api.mainnet-beta.solana.com",
     "tp1_percent": 5.0,
     "tp1_profit": 50.0,
