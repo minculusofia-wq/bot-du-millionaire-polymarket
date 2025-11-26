@@ -3,7 +3,6 @@
 WebSockets Handler
 Updates en temps réel du dashboard
 """
-from flask import emit
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
 from typing import Dict, Optional
