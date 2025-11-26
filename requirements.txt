@@ -3,3 +3,4 @@ requests==2.31.0
 flask-socketio==5.3.4
 python-socketio==5.9.0
 eventlet==0.33.3
+websockets==12.0

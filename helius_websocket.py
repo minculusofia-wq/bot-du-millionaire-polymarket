@@ -9,6 +9,7 @@ import json
 import os
 import threading
 import time
+import ssl
 from typing import Optional, Dict, List, Callable
 from datetime import datetime
 from collections import deque
@@ -119,8 +120,14 @@ class HeliosWebsocketListener:
                 self.wss_url = self.wss_urls[self.url_index % len(self.wss_urls)]
                 print(f"🔌 Connexion websocket Helius... (tentative {retry_count + 1}, URL format {self.url_index + 1})")
 
+                # ✨ NOUVEAU: Créer un contexte SSL pour macOS/Linux (résout CERTIFICATE_VERIFY_FAILED)
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+
                 async with websockets.connect(
                     self.wss_url,
+                    ssl=ssl_context,  # ✨ Ajouter le contexte SSL
                     ping_interval=30,  # ✨ Ping automatique toutes les 30s
                     ping_timeout=10,   # ✨ Timeout de 10s pour pong
                     close_timeout=10

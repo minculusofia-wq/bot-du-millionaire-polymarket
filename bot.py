@@ -80,8 +80,9 @@ ws_handler.init_app(app, socketio)
 # Afficher le statut de configuration au lancement
 import os
 helius_key = os.getenv('HELIUS_API_KEY')
+current_mode = backend.data.get('mode', 'TEST')  # Défaut TEST pour la sécurité
 print(f"{'='*60}")
-print(f"✅ BOT PRÊT À DÉMARRER (MODE REAL)")
+print(f"✅ BOT PRÊT À DÉMARRER (MODE {current_mode})")
 print(f"Helius API Key: {'✅ Configurée' if helius_key else '❌ NON configurée'}")
 print(f"Traders actifs: {sum(1 for t in backend.data.get('traders', []) if t.get('active'))}")
 print(f"Bot activé: {'✅ OUI' if backend.is_running else '❌ NON'}")
@@ -2262,7 +2263,11 @@ def api_trade_history():
 
 if __name__ == '__main__':
     print("🚀 Lancement sur http://0.0.0.0:5000")
-    print("📊 Mode TEST avec suivi de portefeuilles réels")
+    current_mode = backend.data.get('mode', 'TEST')
+    if current_mode == 'TEST':
+        print("📊 Mode TEST avec suivi de portefeuilles réels")
+    else:
+        print("⚠️ Mode REAL - Transactions réelles activées")
     print("🔒 Phase 3 Security: Validation + Safety + Audit logging activés")
     print("🌐 WebSocket activé pour dashboard temps réel")
     socketio.run(app, debug=False, host='0.0.0.0', port=5000, use_reloader=False)
