@@ -56,8 +56,19 @@ from arbitrage_engine import arbitrage_engine
 from advanced_risk_manager import risk_manager
 from advanced_analytics import analytics
 
+# 🌐 Initialisation Flask + SocketIO pour temps réel
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'bot-du-millionnaire-secret-key-2025'
+
+# Importer Flask-SocketIO
+from flask_socketio import SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
 backend = BotBackend()
+
+# Connecter le WebSocket handler
+from websockets_handler import ws_handler
+ws_handler.init_app(app, socketio)
 
 # Afficher le statut de configuration au lancement
 import os
@@ -142,6 +153,15 @@ def on_trader_transaction_detected(trade_event: Dict):
                             out_mint = trade.get('out_mint', '?')
                             token_symbol = out_mint[-8:] if out_mint and len(out_mint) > 8 else out_mint
                             print(f"⚡ WEBSOCKET (<200ms): {trader_name} → {token_symbol} | Capital: ${capital_alloc}")
+
+                            # 🌐 Broadcast trade exécuté en temps réel
+                            ws_handler.broadcast_trade_executed({
+                                'trader': trader_name,
+                                'action': 'BUY',
+                                'token': token_symbol,
+                                'amount': capital_alloc,
+                                'timestamp': datetime.now().isoformat()
+                            })
         except Exception as e:
             print(f"⚠️ Erreur traitement websocket trade: {str(e)[:80]}")
     
@@ -198,10 +218,23 @@ def start_tracking():
         if backend.is_running:
             # 🔄 METTRE À JOUR LES PRIX DE TOUTES LES POSITIONS (chaque cycle)
             auto_sell_manager.update_all_position_prices({})
-            
+
             # Track wallets + portfolio
             portfolio_tracker.track_all_wallets()
             portfolio_tracker.update_bot_portfolio()
+
+            # 🌐 Broadcast mise à jour portfolio (toutes les 5 secondes)
+            if current_time % 5 < 2:  # Toutes les ~5 secondes
+                try:
+                    portfolio_value = backend.virtual_balance
+                    active_count = sum(1 for t in backend.data.get('traders', []) if t.get('active'))
+                    ws_handler.broadcast_portfolio_update({
+                        'portfolio_value': portfolio_value,
+                        'active_traders': active_count,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                except:
+                    pass
             
             # Fallback sur Magic Eden si Helius échoue (tous les 30s)
             if current_time - last_fallback_check > 30:
@@ -365,6 +398,8 @@ HTML_TEMPLATE = """
         .action-btn.disable { background: #FF9800; color: white; }
         .action-btn.disable:hover { background: #FFB74D; }
     </style>
+    <!-- 🌐 Socket.IO pour WebSocket temps réel -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -648,6 +683,80 @@ HTML_TEMPLATE = """
     <script>
         let chartData = [1000];
         let editingTraderIndex = -1;
+
+        // 🌐 WEBSOCKET - Connexion Socket.IO pour temps réel
+        const socket = io();
+
+        // Événement: Connexion établie
+        socket.on('connect', function() {
+            console.log('✅ WebSocket connecté');
+        });
+
+        // Événement: Déconnexion
+        socket.on('disconnect', function() {
+            console.log('❌ WebSocket déconnecté');
+        });
+
+        // Événement: Trade exécuté
+        socket.on('trade_executed', function(data) {
+            console.log('💰 Trade exécuté:', data);
+            // Afficher une notification
+            showNotification(`Trade: ${data.trader} → ${data.token}`, 'success');
+            // Rafraîchir l'UI
+            updateUI();
+        });
+
+        // Événement: Portfolio mis à jour
+        socket.on('portfolio_update', function(data) {
+            console.log('📊 Portfolio mis à jour:', data);
+            // Mettre à jour le portfolio sans recharger
+            if (data.portfolio_value) {
+                document.getElementById('portfolio').textContent = '$' + data.portfolio_value.toFixed(2);
+            }
+            if (data.active_traders !== undefined) {
+                document.getElementById('active_traders_count').textContent = data.active_traders;
+            }
+        });
+
+        // Événement: Trader mis à jour
+        socket.on('trader_update', function(data) {
+            console.log('👤 Trader mis à jour:', data);
+            // Rafraîchir la liste des traders
+            updateUI();
+        });
+
+        // Événement: Alerte
+        socket.on('alert', function(data) {
+            console.log('⚠️ Alerte:', data);
+            showNotification(data.message, data.severity || 'warning');
+        });
+
+        // Événement: Performance mise à jour
+        socket.on('performance', function(data) {
+            console.log('📈 Performance:', data);
+            // Mettre à jour les métriques de performance
+            if (data.win_rate !== undefined) {
+                const winRateEl = document.getElementById('win_rate');
+                if (winRateEl) winRateEl.textContent = data.win_rate.toFixed(1) + '%';
+            }
+            if (data.pnl_total !== undefined) {
+                const pnlColor = data.pnl_total >= 0 ? '#00E676' : '#D50000';
+                const pnlEl = document.getElementById('total_pnl');
+                if (pnlEl) {
+                    pnlEl.textContent = (data.pnl_total >= 0 ? '+' : '') + '$' + data.pnl_total.toFixed(2);
+                    pnlEl.style.color = pnlColor;
+                }
+            }
+        });
+
+        // Fonction pour afficher des notifications
+        function showNotification(message, type = 'info') {
+            // Créer une notification simple dans la console
+            const emoji = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔔';
+            console.log(`${emoji} ${type.toUpperCase()}: ${message}`);
+
+            // TODO: Ajouter plus tard une vraie notification visuelle dans l'UI
+        }
         
         function showSection(name) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -1826,4 +1935,5 @@ if __name__ == '__main__':
     print("🚀 Lancement sur http://0.0.0.0:5000")
     print("📊 Mode TEST avec suivi de portefeuilles réels")
     print("🔒 Phase 3 Security: Validation + Safety + Audit logging activés")
-    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
+    print("🌐 WebSocket activé pour dashboard temps réel")
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000, use_reloader=False)
