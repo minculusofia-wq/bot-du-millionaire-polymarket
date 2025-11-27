@@ -10,7 +10,7 @@
 
 ### 🎯 Gestion des Traders
 - ✅ **10 traders pré-configurés** avec adresses Solana
-- ✅ **Limite de 2 traders actifs** simultanément
+- ✅ **Limite de 3 traders actifs** simultanément
 - ✅ **Édition en temps réel** : Modifier Nom, Emoji et Adresse
 - ✅ **Surbrillance visuelle** des traders sélectionnés
   - 🟢 Bordure verte sur la liste des traders
