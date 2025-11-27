@@ -1,0 +1,189 @@
+{
+    "slippage": 50.9,
+    "active_traders_limit": 3,
+    "currency": "USD",
+    "total_capital": 1000,
+    "rpc_url": "https://api.mainnet-beta.solana.com",
+    "tp1_percent": 5.0,
+    "tp1_profit": 50.0,
+    "tp2_percent": 10.0,
+    "tp2_profit": 100.0,
+    "tp3_percent": 20.0,
+    "tp3_profit": 200.0,
+    "sl_percent": 2.0,
+    "sl_loss": 20.0,
+    "traders": [
+        {
+            "name": "Japon",
+            "emoji": "\ud83d\ude80",
+            "address": "EQaxqKT3N981QBmdSUGNzAGK5S26zUwAdRHhBCgn87zD",
+            "active": false,
+            "capital": 100.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 10.0
+        },
+        {
+            "name": "colombie",
+            "emoji": "\u265b",
+            "address": "2undvDBttb5ohSggdzEhGUq6mhNBf9JsiLTcsguPp51c",
+            "active": false,
+            "capital": 0.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 0.0
+        },
+        {
+            "name": "Euris",
+            "emoji": "\ud83e\uddc8",
+            "address": "DfMxre4cKmvogbLrPigxmibVTTQDuzjdXojWzjCXXhzj",
+            "active": false,
+            "capital": 100.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 100.0
+        },
+        {
+            "name": "Alexcooks",
+            "emoji": "\ud83e\uddd9",
+            "address": "89HbgWduLwoxcofWpmn1EiF9wEdpgkNDEyPjzZ72mkDi",
+            "active": false,
+            "capital": 0.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 0.0
+        },
+        {
+            "name": "Starter",
+            "emoji": "\u26a1",
+            "address": "BBPKQwYLyiPjAX2KTFxanR7vxwa7majAF7c7yoaRX8oR",
+            "active": true,
+            "capital": 100.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 10.0
+        },
+        {
+            "name": "Canada",
+            "emoji": "\ud83d\udc09",
+            "address": "CTC7HVkCkPuChSJjArVip375ogvMUtQLhdzLfiPizdEc",
+            "active": false,
+            "capital": 100.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 10.0
+        },
+        {
+            "name": "Italie",
+            "emoji": "\ud83e\uddc9",
+            "address": "7BNaxx6KdUYrjACNQZ9He26NBFoFxujQMAfNLnArLGH5",
+            "active": true,
+            "capital": 100.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 10.0
+        },
+        {
+            "name": "Sardaigne",
+            "emoji": "\ud83c\udfef",
+            "address": "DmB4xRNaVH2Y2FVBFsJKYvdPDKYjx2sgC8aQFRBF4gB2",
+            "active": false,
+            "capital": 100.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 100.0
+        },
+        {
+            "name": "Algerie",
+            "emoji": "\ud83c\udff4\u200d\u2620\ufe0f",
+            "address": "EzLu595m6CRxPybAUjSser9FmjDvjS3d3vyX4CPiu8Xn",
+            "active": false,
+            "capital": 0.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 0.0
+        },
+        {
+            "name": "Chester",
+            "emoji": "\ud83d\ude82",
+            "address": "PMJA8UQDyWTFw2Smhyp9jGA6aTaP7jKHR7BPudrgyYN",
+            "active": false,
+            "capital": 100.0,
+            "per_trade_amount": 10.0,
+            "min_trade_amount": 100.0
+        }
+    ],
+    "trader_tp_sl": {
+        "Japon": {
+            "tp": [
+                3,
+                7,
+                15
+            ],
+            "sl": 1.5
+        },
+        "Starter": {
+            "tp": [
+                5,
+                10,
+                20
+            ],
+            "sl": 2.0
+        },
+        "Euris": {
+            "tp": [
+                8,
+                12,
+                25
+            ],
+            "sl": 3.0
+        },
+        "Canada": {
+            "tp": [
+                4,
+                9,
+                18
+            ],
+            "sl": 1.8
+        },
+        "Italie": {
+            "tp": [
+                6,
+                11,
+                22
+            ],
+            "sl": 2.5
+        },
+        "Sardaigne": {
+            "tp": [
+                7,
+                13,
+                24
+            ],
+            "sl": 2.8
+        },
+        "colombie": {
+            "tp": [
+                5,
+                10,
+                20
+            ],
+            "sl": 2.0
+        },
+        "Alexcooks": {
+            "tp": [
+                6,
+                12,
+                23
+            ],
+            "sl": 2.2
+        },
+        "Algerie": {
+            "tp": [
+                4,
+                8,
+                16
+            ],
+            "sl": 1.6
+        },
+        "Chester": {
+            "tp": [
+                7,
+                14,
+                26
+            ],
+            "sl": 3.2
+        }
+    }
+}
