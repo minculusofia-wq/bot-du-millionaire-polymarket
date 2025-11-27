@@ -1,0 +1,21 @@
+#!/bin/bash
+# Script pour configurer GitHub remote
+
+echo "📦 Configuration GitHub Remote"
+echo ""
+echo "Étape 1: Créer un dépôt sur GitHub (si pas déjà fait)"
+echo "  → Allez sur https://github.com/new"
+echo "  → Nom: bot-du-millionaire"
+echo "  → Public ou Private"
+echo "  → NE PAS initialiser avec README (on a déjà les fichiers)"
+echo ""
+echo "Étape 2: Ajouter le remote"
+echo "  → Remplacez USERNAME par votre nom d'utilisateur GitHub"
+echo ""
+echo "git remote add origin https://github.com/USERNAME/bot-du-millionaire.git"
+echo ""
+echo "Étape 3: Pousser vers GitHub"
+echo "git branch -M main"
+echo "git push -u origin main"
+echo ""
+echo "✅ Ensuite vos commits seront synchronisés avec GitHub"
