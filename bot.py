@@ -261,7 +261,7 @@ def start_tracking():
             # 🌐 Broadcast mise à jour portfolio (toutes les 5 secondes)
             if current_time % 5 < 2:  # Toutes les ~5 secondes
                 try:
-                    portfolio_value = backend.virtual_balance
+                    portfolio_value = backend.get_wallet_balance_dynamic()
                     active_count = sum(1 for t in backend.data.get('traders', []) if t.get('active'))
                     ws_handler.broadcast_portfolio_update({
                         'portfolio_value': portfolio_value,

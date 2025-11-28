@@ -165,4 +165,5 @@ class PositionSizer:
 
 # Instances globales
 global_circuit_breaker = CircuitBreaker()
-global_position_sizer = PositionSizer(total_capital=1000)
+# Note: PositionSizer sera initialisé dynamiquement avec le capital réel du wallet
+global_position_sizer = None  # Initialisé au démarrage avec get_wallet_balance_dynamic()

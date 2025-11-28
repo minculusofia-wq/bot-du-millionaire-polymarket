@@ -294,9 +294,10 @@ class RealPortfolioTracker:
     def update_bot_portfolio(self):
         """Met à jour le portefeuille du bot basé sur les traders actifs"""
         if not self.backend.is_running:
-            return self.backend.virtual_balance
+            return self.backend.get_wallet_balance_dynamic()
             
-        total_capital = self.backend.data.get('total_capital', 1000)
+        # MODE REAL: Utiliser le capital réel du wallet
+        total_capital = self.backend.get_wallet_balance_dynamic()
         total_value = total_capital  # Capital de départ
         
         # Pour chaque trader actif, ajouter sa performance
@@ -309,7 +310,8 @@ class RealPortfolioTracker:
                     gain_perte = per_trade_amount * (perf['pnl_percent'] / 100)
                     total_value += gain_perte
                 
-        self.backend.virtual_balance = total_value
+        # MODE REAL: Plus de virtual_balance
+        # total_value est calculé mais pas stocké dans virtual_balance
         return round(total_value, 2)
 
 # Instance globale
