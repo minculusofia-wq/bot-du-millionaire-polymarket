@@ -20,7 +20,8 @@ class BotBackend:
         self._pending_save = False
         
         self.load_config()
-        self.is_running = False
+        # Charger is_running depuis config ou False par défaut
+        self.is_running = self.data.get('is_running', False)
         # MODE REAL uniquement - pas de capital fictif
         self.trader_capital_used = {}  # Capital utilisé par trader
         self.portfolio_cache = None
@@ -35,6 +36,7 @@ class BotBackend:
             with open(self.config_file, 'r') as f:
                 self.data = json.load(f)
                 self._validate_config()
+                self._migrate_config()  # Migration des anciennes configs
         except FileNotFoundError:
             self._create_default_config()
         except Exception as e:
@@ -56,6 +58,42 @@ class BotBackend:
             if "min_trade_amount" not in trader:
                 trader["min_trade_amount"] = 0
     
+
+    def _migrate_config(self):
+        """Migre les anciennes configurations vers les nouveaux defaults"""
+        needs_save = False
+        
+        # Supprimer total_capital si présent (MODE TEST deprecated)
+        if 'total_capital' in self.data:
+            del self.data['total_capital']
+            needs_save = True
+            print("🔄 Migration: Suppression de total_capital (MODE REAL uniquement)")
+        
+        # Ajouter is_running si manquant
+        if 'is_running' not in self.data:
+            self.data['is_running'] = False
+            needs_save = True
+        
+        # Ajouter arbitrage config si manquant avec defaults à 0
+        if 'arbitrage' not in self.data:
+            self.data['arbitrage'] = {
+                "enabled": False,
+                "capital_dedicated": 0,
+                "percent_per_trade": 0,
+                "min_profit_threshold": 0,
+                "min_amount_per_trade": 0,
+                "max_amount_per_trade": 0,
+                "cooldown_seconds": 30,
+                "max_concurrent_trades": 0,
+                "blacklist_tokens": []
+            }
+            needs_save = True
+            print("🔄 Migration: Ajout config arbitrage (defaults à 0)")
+        
+        if needs_save:
+            self.save_config_sync()
+            print("✅ Migration de config effectuée")
+
     def _create_default_config(self):
         """Crée une configuration par défaut"""
         self.data = {
@@ -64,6 +102,7 @@ class BotBackend:
             "currency": "USD",
             "wallet_private_key": "",
             "rpc_url": "https://api.mainnet-beta.solana.com",
+            "is_running": False,  # État du bot
             "tp1_percent": 0,  # Désactivé par défaut
             "tp1_profit": 0,
             "tp2_percent": 0,
@@ -204,7 +243,11 @@ class BotBackend:
         return True
 
     def toggle_bot(self, status):
+        """Toggle l'état du bot et persiste dans config"""
         self.is_running = status
+        self.data['is_running'] = status  # Persister l'état
+        self.save_config()  # Sauvegarder (asynchrone avec debouncing)
+        print(f"🤖 Bot {'ACTIVÉ ✅' if status else 'DÉSACTIVÉ ❌'}")
 
     def update_trader(self, index, name, emoji, address, capital=None, per_trade_amount=None, min_trade_amount=None):
         """⚡ OPTIMISÉ: Update avec sauvegarde asynchrone"""
