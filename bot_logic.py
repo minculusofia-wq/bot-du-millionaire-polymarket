@@ -2,6 +2,7 @@
 import json
 import random
 import time
+import threading
 from datetime import datetime, timedelta
 
 try:
@@ -22,6 +23,11 @@ class BotBackend:
         self.wallet_balance_cache = None
         self.wallet_balance_cache_time = None
         self.wallet_balance_cache_ttl = 10  # Cache 10 secondes
+        
+        # ⚡ OPTIMISATION: Sauvegarde asynchrone avec debouncing
+        self._save_timer = None
+        self._save_lock = threading.Lock()
+        self._pending_save = False
         
     def load_config(self):
         try:
@@ -78,14 +84,37 @@ class BotBackend:
                 {"name": "ApeTrain", "emoji": "🚂", "address": "PMJA8UQDyWTFw2Smhyp9jGA6aTaP7jKHR7BPudrgyYN", "active": False, "capital": 0, "per_trade_amount": 10, "min_trade_amount": 0}
             ]
         }
-        self.save_config()
+        self.save_config_sync()  # Sauvegarde immédiate pour création
 
-    def save_config(self):
+    def _do_save(self):
+        """Effectue la sauvegarde réelle sur disque"""
         try:
             with open(self.config_file, 'w') as f:
-                json.dump(self.data, f, indent=4)
+                json.dump(self.data, f, indent=2)  # indent=2 au lieu de 4 (plus rapide)
+            self._pending_save = False
         except Exception as e:
             print(f"❌ Erreur sauvegarde config: {e}")
+
+    def save_config(self):
+        """⚡ Sauvegarde ASYNCHRONE avec debouncing (500ms)"""
+        with self._save_lock:
+            # Annuler le timer précédent si existant
+            if self._save_timer is not None:
+                self._save_timer.cancel()
+            
+            # Planifier sauvegarde dans 500ms
+            self._save_timer = threading.Timer(0.5, self._do_save)
+            self._save_timer.daemon = True
+            self._save_timer.start()
+            self._pending_save = True
+
+    def save_config_sync(self):
+        """Sauvegarde SYNCHRONE immédiate (pour cas critiques)"""
+        with self._save_lock:
+            if self._save_timer is not None:
+                self._save_timer.cancel()
+                self._save_timer = None
+            self._do_save()
 
     def get_portfolio_value(self):
         """Calcule la valeur du portefeuille = capital initial + PnL total"""
@@ -112,47 +141,60 @@ class BotBackend:
             
             return round(total_pnl, 2)
         except Exception as e:
-            print(f"⚠️ Erreur get_total_pnl: {e}")
+            print(f"⚠️ Erreur calcul PnL total: {e}")
             return 0
-    
-    def get_total_pnl_percent(self):
-        """Retourne le PnL % moyen RÉEL depuis auto_sell_manager (SEULEMENT des traders ACTIFS)"""
+
+    def get_wallet_balance_dynamic(self):
+        """Retourne le balance réel du wallet depuis Solana (avec cache 10s)"""
+        current_time = time.time()
+        
+        # Cache hit
+        if (self.wallet_balance_cache is not None and 
+            self.wallet_balance_cache_time is not None and 
+            current_time - self.wallet_balance_cache_time < self.wallet_balance_cache_ttl):
+            return self.wallet_balance_cache
+        
+        # Cache miss - récupérer balance réel
         try:
-            from auto_sell_manager import auto_sell_manager
+            from solana_integration import solana_integration
             
-            active_traders = [t for t in self.data['traders'] if t.get('active')]
-            if not active_traders:
-                return 0
+            wallet_address = self.data.get('wallet_address')
+            if not wallet_address:
+                private_key = self.data.get('wallet_private_key', '')
+                if private_key and Keypair:
+                    try:
+                        keypair = Keypair.from_secret_key(bytes.fromhex(private_key))
+                        wallet_address = str(keypair.pubkey())
+                    except:
+                        return 0
+                else:
+                    return 0
             
-            pnl_percents = []
-            for trader in active_traders:
-                trader_pnl_data = auto_sell_manager.get_trader_pnl(trader['name'])
-                pnl_percents.append(trader_pnl_data.get('pnl_percent', 0))
-            
-            if not pnl_percents:
-                return 0
-            
-            avg_pnl_percent = sum(pnl_percents) / len(pnl_percents)
-            return round(avg_pnl_percent, 2)
+            balance_sol = solana_integration.get_sol_balance(wallet_address)
+            self.wallet_balance_cache = balance_sol
+            self.wallet_balance_cache_time = current_time
+            return balance_sol
         except Exception as e:
-            print(f"⚠️ Erreur get_total_pnl_percent: {e}")
+            print(f"⚠️ Erreur get_wallet_balance_dynamic: {e}")
             return 0
 
     def get_active_traders_count(self):
         return sum(1 for t in self.data['traders'] if t['active'])
 
     def toggle_trader(self, index, state):
+        """⚡ OPTIMISÉ: Toggle avec sauvegarde asynchrone"""
         current_active = self.get_active_traders_count()
         if state and current_active >= self.data['active_traders_limit'] and not self.data['traders'][index]['active']:
             return False
         self.data['traders'][index]['active'] = state
-        self.save_config()
+        self.save_config()  # Asynchrone avec debouncing
         return True
 
     def toggle_bot(self, status):
         self.is_running = status
 
     def update_trader(self, index, name, emoji, address, capital=None, per_trade_amount=None, min_trade_amount=None):
+        """⚡ OPTIMISÉ: Update avec sauvegarde asynchrone"""
         self.data['traders'][index]['name'] = name
         self.data['traders'][index]['emoji'] = emoji
         self.data['traders'][index]['address'] = address
@@ -162,9 +204,10 @@ class BotBackend:
             self.data['traders'][index]['per_trade_amount'] = float(per_trade_amount)
         if min_trade_amount is not None:
             self.data['traders'][index]['min_trade_amount'] = float(min_trade_amount)
-        self.save_config()
+        self.save_config()  # Asynchrone avec debouncing
     
     def update_take_profit(self, tp1_percent, tp1_profit, tp2_percent, tp2_profit, tp3_percent, tp3_profit, sl_percent, sl_loss):
+        """⚡ OPTIMISÉ: Update TP/SL avec sauvegarde asynchrone"""
         self.data['tp1_percent'] = tp1_percent
         self.data['tp1_profit'] = tp1_profit
         self.data['tp2_percent'] = tp2_percent
@@ -173,113 +216,36 @@ class BotBackend:
         self.data['tp3_profit'] = tp3_profit
         self.data['sl_percent'] = sl_percent
         self.data['sl_loss'] = sl_loss
-        self.save_config()
+        self.save_config()  # Asynchrone avec debouncing
 
     def set_trader_capital(self, trader_index, capital):
         """Définit le capital alloué pour un trader"""
         if 0 <= trader_index < len(self.data['traders']):
             self.data['traders'][trader_index]['capital'] = float(capital)
-            self.save_config()
+            self.save_config()  # Asynchrone avec debouncing
             return True
         return False
-    
-    def get_trader_capital(self, trader_index):
-        """Récupère le capital alloué pour un trader"""
-        if 0 <= trader_index < len(self.data['traders']):
-            return self.data['traders'][trader_index].get('capital', 100)
-        return 0
-    
-    def get_total_allocated_capital(self):
-        """Retourne le capital total alloué à tous les traders actifs"""
-        total = 0
-        for trader in self.data['traders']:
-            if trader['active']:
-                total += trader.get('capital', 100)
-        return total
-    
-    def get_wallet_balance_dynamic(self):
-        """
-        Récupère le solde du wallet Solana en temps réel
-        - Si clé privée fournie → solde réel du wallet
-        - Si pas de clé privée → 0
-        """
-        import requests
-        import os
-        
-        # Vérifier le cache
-        current_time = time.time()
-        if self.wallet_balance_cache is not None and self.wallet_balance_cache_time is not None:
-            if current_time - self.wallet_balance_cache_time < self.wallet_balance_cache_ttl:
-                return self.wallet_balance_cache
-        
-        # Pas de clé privée → retourner 0
-        private_key = self.data.get('wallet_private_key', '').strip()
-        if not private_key or private_key == '':
-            self.wallet_balance_cache = 0.0
-            self.wallet_balance_cache_time = current_time
-            return 0.0
-        
-        try:
-            # Essayer d'extraire l'adresse de la clé privée
-            if Keypair is not None:
-                try:
-                    keypair = Keypair.from_secret_key(bytes.fromhex(private_key))
-                    wallet_address = str(keypair.pubkey())
-                except Exception as e:
-                    print(f"⚠️ Erreur extraction adresse: {e}")
-                    return 0.0
-            else:
-                # Fallback: pas de solders
-                print("⚠️ Solders non disponible - impossible de lire le solde")
-                return 0.0
-            
-            # Récupérer le solde via RPC
-            rpc_url = self.data.get('rpc_url', 'https://api.mainnet-beta.solana.com')
-            payload = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "getBalance",
-                "params": [wallet_address]
-            }
-            response = requests.post(rpc_url, json=payload, timeout=5)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if 'result' in data:
-                    balance_lamports = data['result'].get('value', 0)
-                    balance_sol = float(balance_lamports) / 1_000_000_000
-                    
-                    # Cacher le résultat
-                    self.wallet_balance_cache = balance_sol
-                    self.wallet_balance_cache_time = current_time
-                    
-                    return balance_sol
-        except Exception as e:
-            print(f"⚠️ Erreur récupération solde wallet: {e}")
-        
-        # En cas d'erreur, retourner 0
-        return 0.0
-    
+
+    def initialize_test_prices(self):
+        """Initialise les prix simulés pour MODE TEST (DEPRECATED - MODE REAL uniquement)"""
+        pass
+
     def get_capital_summary(self):
-        """Retourne un résumé du capital : total, utilisé, restant"""
+        """Retourne un résumé du capital alloué"""
         # Utiliser le capital réel du wallet
         total_capital = self.get_wallet_balance_dynamic()
-        allocated_capital = sum(t.get('capital', 0) for t in self.data['traders'])
-        remaining_capital = total_capital - allocated_capital
         
-        traders_capital = []
-        for i, trader in enumerate(self.data['traders']):
-            traders_capital.append({
-                'index': i,
-                'name': trader['name'],
-                'emoji': trader['emoji'],
-                'capital': trader.get('capital', 0),
-                'active': trader['active']
-            })
+        allocated_capital = sum(
+            trader.get('capital', 0) 
+            for trader in self.data['traders'] 
+            if trader.get('active', False)
+        )
+        
+        remaining_capital = total_capital - allocated_capital
         
         return {
             'total_capital': total_capital,
             'allocated_capital': allocated_capital,
-            'remaining_capital': remaining_capital,
-            'traders': traders_capital
+            'remaining_capital': max(0, remaining_capital),
+            'allocation_percent': round((allocated_capital / total_capital * 100) if total_capital > 0 else 0, 1)
         }

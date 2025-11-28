@@ -71,6 +71,12 @@ from flask_socketio import SocketIO
 allowed_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5000,http://127.0.0.1:5000').split(',')
 socketio = SocketIO(app, cors_allowed_origins=allowed_origins, async_mode='eventlet')
 
+
+# ⚡ OPTIMISATION: Cache pour traders performance (réduit latence API)
+traders_performance_cache = None
+traders_performance_cache_time = None
+TRADERS_CACHE_TTL = 2  # 2 secondes de cache
+
 backend = BotBackend()
 
 # Connecter le WebSocket handler
@@ -2111,11 +2117,19 @@ def api_websocket_stats():
 
 @app.route('/api/traders_performance')
 def api_traders_performance():
-    """Retourne les performances de TOUS LES TRADERS du wallet tracker"""
-    performance = []
+    """⚡ OPTIMISÉ: Retourne les performances avec cache 2s"""
+    global traders_performance_cache, traders_performance_cache_time
     
-    # ✅ Afficher TOUS les traders du wallet tracker (actifs ET inactifs)
-    # Les traders actifs affichent aussi le PnL du BOT (copies)
+    current_time = time.time()
+    
+    # Cache hit - retourner données en cache
+    if (traders_performance_cache is not None and 
+        traders_performance_cache_time is not None and 
+        current_time - traders_performance_cache_time < TRADERS_CACHE_TTL):
+        return jsonify(traders_performance_cache)
+    
+    # Cache miss - recalculer
+    performance = []
     
     for trader in backend.data['traders']:
         is_active = trader.get('active')
@@ -2146,6 +2160,10 @@ def api_traders_performance():
             'pnl_7d_percent': f"{perf['pnl_7d_percent']:.2f}",
             'active': is_active
         })
+    
+    # Mettre en cache
+    traders_performance_cache = performance
+    traders_performance_cache_time = current_time
     
     return jsonify(performance)
 
