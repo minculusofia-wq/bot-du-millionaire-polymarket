@@ -272,7 +272,7 @@ class BotBackend:
         if state and current_active >= self.data['active_traders_limit'] and not self.data['traders'][index]['active']:
             return False
         self.data['traders'][index]['active'] = state
-        self.save_config()  # Asynchrone avec debouncing
+        self.save_config_sync()  # ⚡ SYNCHRONE pour réactivité immédiate
         return True
 
     def toggle_bot(self, status):
@@ -283,7 +283,7 @@ class BotBackend:
         print(f"🤖 Bot {'ACTIVÉ ✅' if status else 'DÉSACTIVÉ ❌'}")
 
     def update_trader(self, index, name, emoji, address, capital=None, per_trade_amount=None, min_trade_amount=None):
-        """⚡ OPTIMISÉ: Update avec sauvegarde asynchrone"""
+        """⚡ CRITIQUE: Update avec sauvegarde SYNCHRONE immédiate"""
         self.data['traders'][index]['name'] = name
         self.data['traders'][index]['emoji'] = emoji
         self.data['traders'][index]['address'] = address
@@ -293,7 +293,7 @@ class BotBackend:
             self.data['traders'][index]['per_trade_amount'] = float(per_trade_amount)
         if min_trade_amount is not None:
             self.data['traders'][index]['min_trade_amount'] = float(min_trade_amount)
-        self.save_config()  # Asynchrone avec debouncing
+        self.save_config_sync()  # ⚡ SYNCHRONE pour réactivité immédiate
     
     def update_take_profit(self, tp1_percent, tp1_profit, tp2_percent, tp2_profit, tp3_percent, tp3_profit, sl_percent, sl_loss):
         """⚡ OPTIMISÉ: Update TP/SL avec sauvegarde asynchrone"""
