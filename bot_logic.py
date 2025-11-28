@@ -13,6 +13,12 @@ except ImportError:
 class BotBackend:
     def __init__(self):
         self.config_file = "config.json"
+        
+        # ⚡ OPTIMISATION: Initialiser locks AVANT load_config
+        self._save_timer = None
+        self._save_lock = threading.Lock()
+        self._pending_save = False
+        
         self.load_config()
         self.is_running = False
         # MODE REAL uniquement - pas de capital fictif
@@ -23,11 +29,6 @@ class BotBackend:
         self.wallet_balance_cache = None
         self.wallet_balance_cache_time = None
         self.wallet_balance_cache_ttl = 10  # Cache 10 secondes
-        
-        # ⚡ OPTIMISATION: Sauvegarde asynchrone avec debouncing
-        self._save_timer = None
-        self._save_lock = threading.Lock()
-        self._pending_save = False
         
     def load_config(self):
         try:
@@ -58,19 +59,31 @@ class BotBackend:
     def _create_default_config(self):
         """Crée une configuration par défaut"""
         self.data = {
-            "slippage": 1.0,
+            "slippage": 0,  # Mode Mirror par défaut (0 = suit exactement le trader)
             "active_traders_limit": 3,
             "currency": "USD",
             "wallet_private_key": "",
             "rpc_url": "https://api.mainnet-beta.solana.com",
-            "tp1_percent": 33,
-            "tp1_profit": 10,
-            "tp2_percent": 33,
-            "tp2_profit": 25,
-            "tp3_percent": 34,
-            "tp3_profit": 50,
-            "sl_percent": 100,
-            "sl_loss": 5,
+            "tp1_percent": 0,  # Désactivé par défaut
+            "tp1_profit": 0,
+            "tp2_percent": 0,
+            "tp2_profit": 0,
+            "tp3_percent": 0,
+            "tp3_profit": 0,
+            "sl_percent": 0,
+            "sl_loss": 0,
+            # Configuration Arbitrage par défaut
+            "arbitrage": {
+                "enabled": False,  # Désactivé par défaut
+                "capital_dedicated": 0,
+                "percent_per_trade": 0,
+                "min_profit_threshold": 0,
+                "min_amount_per_trade": 0,
+                "max_amount_per_trade": 0,
+                "cooldown_seconds": 30,
+                "max_concurrent_trades": 0,
+                "blacklist_tokens": []
+            },
             "traders": [
                 {"name": "AlphaMoon", "emoji": "🚀", "address": "EQaxqKT3N981QBmdSUGNzAGK5S26zUwAdRHhBCgn87zD", "active": False, "capital": 0, "per_trade_amount": 10, "min_trade_amount": 0},
                 {"name": "DeFiKing", "emoji": "♛", "address": "2undvDBttb5ohSggdzEhGUq6mhNBf9JsiLTcsguPp51c", "active": False, "capital": 0, "per_trade_amount": 10, "min_trade_amount": 0},

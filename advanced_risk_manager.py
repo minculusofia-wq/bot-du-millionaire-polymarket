@@ -14,14 +14,15 @@ class AdvancedRiskManager:
     """Gestionnaire de risque avancé avec circuit breaker"""
 
     # Valeurs par défaut (utilisées si pas de sauvegarde)
+    # Par défaut tout à 0 = Protection désactivée (mode le plus sûr pour débutant)
     DEFAULT_PARAMS = {
-        'circuit_breaker_threshold': 15,  # 15%
+        'circuit_breaker_threshold': 0,  # Désactivé (0 = pas de circuit breaker automatique)
         'circuit_breaker_cooldown': 3600,  # 1 heure
-        'max_consecutive_losses': 5,
-        'max_position_size_percent': 20,  # 20%
-        'max_daily_loss_percent': 10,  # 10%
-        'max_drawdown_percent': 25,  # 25%
-        'kelly_safety_factor': 0.5,  # Demi-Kelly
+        'max_consecutive_losses': 0,  # Désactivé (0 = pas de limite)
+        'max_position_size_percent': 0,  # Désactivé (0 = pas de limite)
+        'max_daily_loss_percent': 0,  # Désactivé (0 = pas de limite)
+        'max_drawdown_percent': 0,  # Désactivé (0 = pas de limite)
+        'kelly_safety_factor': 0,  # Désactivé (0 = pas de Kelly Criterion)
         'save_params': False  # Pas de sauvegarde par défaut
     }
 
