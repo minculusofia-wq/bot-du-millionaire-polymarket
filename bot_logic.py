@@ -90,10 +90,14 @@ class BotBackend:
             needs_save = True
             print("🔄 Migration: Ajout config arbitrage (defaults à 0)")
         
-        # RESET FORCÉ: Mettre TP/SL/Slippage à 0 (Mode Mirror par défaut)
-        # Note: Cette section peut être supprimée après la première migration
-        if self.data.get('slippage') != 0 or self.data.get('tp1_percent') != 0 or self.data.get('sl_percent') != 0:
-            print("🔄 Migration: Reset TP/SL/Slippage à 0 (Mode Mirror)")
+        # Ajouter params_saved si manquant
+        if 'params_saved' not in self.data:
+            self.data['params_saved'] = False
+            needs_save = True
+        
+        # Reset à 0 si params_saved = False (pas de sauvegarde explicite)
+        if not self.data.get('params_saved', False):
+            print("🔄 Reset: Paramètres à 0 (Mode Mirror - Pas de sauvegarde)")
             self.data['slippage'] = 0
             self.data['tp1_percent'] = 0
             self.data['tp1_profit'] = 0
@@ -103,7 +107,20 @@ class BotBackend:
             self.data['tp3_profit'] = 0
             self.data['sl_percent'] = 0
             self.data['sl_loss'] = 0
+            
+            # Reset arbitrage aussi
+            if 'arbitrage' in self.data:
+                self.data['arbitrage']['enabled'] = False
+                self.data['arbitrage']['capital_dedicated'] = 0
+                self.data['arbitrage']['percent_per_trade'] = 0
+                self.data['arbitrage']['min_profit_threshold'] = 0
+                self.data['arbitrage']['min_amount_per_trade'] = 0
+                self.data['arbitrage']['max_amount_per_trade'] = 0
+                self.data['arbitrage']['max_concurrent_trades'] = 0
+            
             needs_save = True
+        else:
+            print("✅ Paramètres chargés depuis sauvegarde précédente")
         
         if needs_save:
             self.save_config_sync()
@@ -118,6 +135,7 @@ class BotBackend:
             "wallet_private_key": "",
             "rpc_url": "https://api.mainnet-beta.solana.com",
             "is_running": False,  # État du bot
+            "params_saved": False,  # Flag de sauvegarde explicite
             "tp1_percent": 0,  # Désactivé par défaut
             "tp1_profit": 0,
             "tp2_percent": 0,
@@ -287,6 +305,8 @@ class BotBackend:
         self.data['tp3_profit'] = tp3_profit
         self.data['sl_percent'] = sl_percent
         self.data['sl_loss'] = sl_loss
+        self.data['params_saved'] = True  # Marquer comme sauvegardé
+        print("💾 Paramètres sauvegardés - seront préservés au prochain démarrage")
         self.save_config()  # Asynchrone avec debouncing
 
     def set_trader_capital(self, trader_index, capital):
@@ -296,6 +316,21 @@ class BotBackend:
             self.save_config()  # Asynchrone avec debouncing
             return True
         return False
+
+
+    def update_slippage(self, slippage):
+        """Met à jour le slippage et marque comme sauvegardé"""
+        self.data['slippage'] = float(slippage)
+        self.data['params_saved'] = True
+        print("💾 Slippage sauvegardé - sera préservé au prochain démarrage")
+        self.save_config()
+    
+    def update_arbitrage_config(self, arbitrage_config):
+        """Met à jour la config arbitrage et marque comme sauvegardé"""
+        self.data['arbitrage'] = arbitrage_config
+        self.data['params_saved'] = True
+        print("💾 Config arbitrage sauvegardée - sera préservée au prochain démarrage")
+        self.save_config()
 
     def initialize_test_prices(self):
         """Initialise les prix simulés pour MODE TEST (DEPRECATED - MODE REAL uniquement)"""

@@ -185,7 +185,7 @@
       "sl": 3.2
     }
   },
-  "is_running": true,
+  "is_running": false,
   "arbitrage": {
     "enabled": false,
     "capital_dedicated": 0,
@@ -196,5 +196,6 @@
     "cooldown_seconds": 30,
     "max_concurrent_trades": 0,
     "blacklist_tokens": []
-  }
+  },
+  "params_saved": false
 }
