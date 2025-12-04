@@ -360,6 +360,11 @@ HTML_TEMPLATE = """
         .divider { border-top: 2px solid #444; margin: 25px 0; }
         .section-title { color: #FF6B6B; margin-top: 20px; margin-bottom: 10px; font-size: 16px; font-weight: bold; }
         
+        /* 📊 Stat Box pour Arbitrage et Polymarket */
+        .stat-box { padding: 20px; border-radius: 12px; text-align: center; color: white; }
+        .stat-box .stat-label { font-size: 13px; opacity: 0.9; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-box .stat-value { font-size: 28px; font-weight: bold; }
+        
         .live-trader-card { background: linear-gradient(135deg, #1a2a3a 0%, #0f1f2f 100%); border: 2px solid #333; border-radius: 12px; padding: 20px; margin: 15px 0; transition: all 0.3s ease; }
         .live-trader-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 230, 118, 0.1); border-color: #00E676; }
         .live-trader-card.profitable { border-left: 5px solid #00E676; }
@@ -443,7 +448,8 @@ HTML_TEMPLATE = """
             <button class="nav-btn" onclick="showSection('backtesting')">🎮 Backtesting</button>
             <button class="nav-btn" onclick="showSection('benchmark')">🏆 Benchmark</button>
             <button class="nav-btn" onclick="showSection('risk_manager')">🛡️ Risk Manager</button>
-            <button class="nav-btn" onclick="showSection('arbitrage')">💰 Arbitrage</button>
+            <button class="nav-btn" onclick="showSection('arbitrage')">💰 Arbitrage Solana</button>
+            <button class="nav-btn" onclick="showSection('polymarket')">🔮 Polymarket Copy</button>
             <button class="nav-btn" onclick="showSection('settings')">Paramètres & Sécurité</button>
             <button class="nav-btn" onclick="showSection('history')">Historique Complet</button>
         </div>
@@ -966,6 +972,112 @@ HTML_TEMPLATE = """
                     </button>
                     <button class="btn" onclick="loadArbitrageConfig()" style="flex: 1; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
                         🔄 Recharger
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POLYMARKET COPY TRADING -->
+    <div id="polymarket" class="section">
+        <div class="container">
+            <div class="card">
+                <h2>🔮 Polymarket Copy Trading - Marchés Prédictifs</h2>
+                
+                <!-- Statut ON/OFF -->
+                <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+                    <label style="display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px;">
+                        <input type="checkbox" id="polymarket_enabled" onchange="togglePolymarket()" style="margin-right: 15px; width: 24px; height: 24px;">
+                        <span id="polymarket_status_text" style="font-weight: bold;">❌ Copy Trading Polymarket Désactivé</span>
+                    </label>
+                    <p style="color: #999; font-size: 13px; margin: 10px 0 0 0;">
+                        Copie automatiquement les positions des traders rentables sur Polymarket (Polygon)
+                    </p>
+                    <p style="color: #FFD600; font-size: 12px; margin-top: 5px;">
+                        ⚠️ Mode DRY RUN par défaut - Aucun trade réel
+                    </p>
+                </div>
+
+                <!-- Statistiques en temps réel -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                    <div class="stat-box" style="background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);">
+                        <div class="stat-label">Capital Polymarket</div>
+                        <div class="stat-value" id="pm_capital">$100</div>
+                    </div>
+                    <div class="stat-box" style="background: linear-gradient(135deg, #EC4899 0%, #F472B6 100%);">
+                        <div class="stat-label">Signaux Détectés</div>
+                        <div class="stat-value" id="pm_signals">0</div>
+                    </div>
+                    <div class="stat-box" style="background: linear-gradient(135deg, #14B8A6 0%, #2DD4BF 100%);">
+                        <div class="stat-label">Trades Copiés</div>
+                        <div class="stat-value" id="pm_trades_copied">0</div>
+                    </div>
+                    <div class="stat-box" style="background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);">
+                        <div class="stat-label">Profit Simulé</div>
+                        <div class="stat-value" id="pm_profit">$0.00</div>
+                    </div>
+                </div>
+
+                <!-- Configuration -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <!-- Colonne 1: Wallets à suivre -->
+                    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px;">
+                        <h3 style="color: #64B5F6; margin-bottom: 15px;">👀 Wallets à Copier</h3>
+                        
+                        <label style="display: block; margin-bottom: 10px; color: #bbb;">
+                            Adresses Polygon (une par ligne)
+                            <textarea id="pm_tracked_wallets" class="input-field" style="width: 100%; margin-top: 5px; min-height: 120px;" placeholder="0x56687bf447db6ffa42ffe2204a05edaa20f55839&#10;0x..."></textarea>
+                            <span style="font-size: 12px; color: #999;">Adresses des traders à copier sur Polymarket</span>
+                        </label>
+
+                        <label style="display: block; margin-bottom: 10px; color: #bbb;">
+                            Intervalle de Polling (secondes)
+                            <input type="number" id="pm_polling_interval" value="10" min="5" max="60" step="5" class="input-field" style="width: 100%; margin-top: 5px;">
+                            <span style="font-size: 12px; color: #999;">Fréquence de vérification des positions</span>
+                        </label>
+                    </div>
+
+                    <!-- Colonne 2: Paramètres de Trading -->
+                    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px;">
+                        <h3 style="color: #64B5F6; margin-bottom: 15px;">⚙️ Paramètres de Trading</h3>
+
+                        <label style="display: block; margin-bottom: 10px; color: #bbb;">
+                            Position Max par Trade ($)
+                            <input type="number" id="pm_max_position" value="100" min="5" max="10000" step="5" class="input-field" style="width: 100%; margin-top: 5px;">
+                            <span style="font-size: 12px; color: #999;">Montant maximum par position copiée</span>
+                        </label>
+
+                        <label style="display: block; margin-bottom: 10px; color: #bbb;">
+                            Position Min par Trade ($)
+                            <input type="number" id="pm_min_position" value="5" min="1" max="100" step="1" class="input-field" style="width: 100%; margin-top: 5px;">
+                            <span style="font-size: 12px; color: #999;">Montant minimum pour copier un trade</span>
+                        </label>
+
+                        <label style="display: flex; align-items: center; margin-top: 15px; color: #bbb;">
+                            <input type="checkbox" id="pm_dry_run" checked style="margin-right: 10px; width: 20px; height: 20px;">
+                            <span>🔬 Mode DRY RUN (Simulation uniquement)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Signaux Récents -->
+                <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="color: #64B5F6; margin-bottom: 15px;">📡 Signaux Récents</h3>
+                    <div id="pm_recent_signals" style="max-height: 300px; overflow-y: auto;">
+                        <p style="color: #999; text-align: center;">Aucun signal détecté pour le moment...</p>
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" onclick="savePolymarketConfig()" style="flex: 1; background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);">
+                        💾 Sauvegarder la Configuration
+                    </button>
+                    <button class="btn" onclick="loadPolymarketConfig()" style="flex: 1; background: linear-gradient(135deg, #14B8A6 0%, #2DD4BF 100%);">
+                        🔄 Recharger
+                    </button>
+                    <button class="btn" onclick="testPolymarketConnection()" style="flex: 1; background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);">
+                        🔗 Tester Connexion
                     </button>
                 </div>
             </div>
@@ -2061,6 +2173,133 @@ HTML_TEMPLATE = """
                 console.error('Erreur update arbitrage stats:', error);
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔮 POLYMARKET COPY TRADING FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════════
+
+        async function togglePolymarket() {
+            const enabled = document.getElementById('polymarket_enabled').checked;
+            try {
+                const response = await fetch('/api/polymarket/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ enabled: enabled })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    const statusText = document.getElementById('polymarket_status_text');
+                    statusText.textContent = enabled ? '✅ Copy Trading Polymarket Activé' : '❌ Copy Trading Polymarket Désactivé';
+                    statusText.style.color = enabled ? '#66bb6a' : '#ff5252';
+                    showNotification(enabled ? '✅ Polymarket Copy Trading activé' : '❌ Polymarket Copy Trading désactivé', 'success');
+                } else {
+                    showNotification('❌ Erreur: ' + (data.error || 'Inconnue'), 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Erreur lors du changement de statut', 'error');
+                console.error(error);
+            }
+        }
+
+        async function loadPolymarketConfig() {
+            try {
+                const response = await fetch('/api/polymarket/config');
+                const data = await response.json();
+
+                if (data.success) {
+                    const config = data.config;
+
+                    // Update form fields
+                    document.getElementById('polymarket_enabled').checked = config.enabled || false;
+                    document.getElementById('pm_tracked_wallets').value = (config.tracked_wallets || []).join('\n');
+                    document.getElementById('pm_polling_interval').value = config.polling_interval || 10;
+                    document.getElementById('pm_max_position').value = config.max_position_usd || 100;
+                    document.getElementById('pm_min_position').value = config.min_position_usd || 5;
+                    document.getElementById('pm_dry_run').checked = config.dry_run !== false;
+
+                    // Update status text
+                    const statusText = document.getElementById('polymarket_status_text');
+                    statusText.textContent = config.enabled ? '✅ Copy Trading Polymarket Activé' : '❌ Copy Trading Polymarket Désactivé';
+                    statusText.style.color = config.enabled ? '#66bb6a' : '#ff5252';
+
+                    showNotification('✅ Configuration Polymarket chargée', 'success');
+                }
+            } catch (error) {
+                console.error('Erreur chargement config Polymarket:', error);
+            }
+        }
+
+        async function savePolymarketConfig() {
+            try {
+                const walletsRaw = document.getElementById('pm_tracked_wallets').value;
+                const wallets = walletsRaw.split('\n').map(w => w.trim()).filter(w => w.length > 0 && w.startsWith('0x'));
+
+                const params = {
+                    enabled: document.getElementById('polymarket_enabled').checked,
+                    tracked_wallets: wallets,
+                    polling_interval: parseInt(document.getElementById('pm_polling_interval').value),
+                    max_position_usd: parseFloat(document.getElementById('pm_max_position').value),
+                    min_position_usd: parseFloat(document.getElementById('pm_min_position').value),
+                    dry_run: document.getElementById('pm_dry_run').checked
+                };
+
+                const response = await fetch('/api/polymarket/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(params)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('✅ Configuration Polymarket sauvegardée', 'success');
+                } else {
+                    showNotification('❌ Erreur: ' + (data.error || 'Inconnue'), 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Erreur lors de la sauvegarde', 'error');
+                console.error(error);
+            }
+        }
+
+        async function testPolymarketConnection() {
+            showNotification('🔗 Test de connexion en cours...', 'info');
+            try {
+                const response = await fetch('/api/polymarket/test');
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('✅ Connexion Polymarket OK!', 'success');
+                } else {
+                    showNotification('❌ Connexion échouée: ' + (data.error || 'Vérifiez vos clés API'), 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Erreur de connexion', 'error');
+                console.error(error);
+            }
+        }
+
+        async function updatePolymarketStats() {
+            try {
+                const response = await fetch('/api/polymarket/stats');
+                const data = await response.json();
+
+                if (data.success) {
+                    const stats = data.stats;
+
+                    // Update stats display
+                    document.getElementById('pm_capital').textContent = '$' + (stats.capital || 100).toFixed(2);
+                    document.getElementById('pm_signals').textContent = stats.signals_detected || 0;
+                    document.getElementById('pm_trades_copied').textContent = stats.trades_copied || 0;
+
+                    const profitEl = document.getElementById('pm_profit');
+                    profitEl.textContent = '$' + (stats.simulated_profit || 0).toFixed(2);
+                    profitEl.style.color = stats.simulated_profit >= 0 ? '#66bb6a' : '#ff5252';
+                }
+            } catch (error) {
+                console.error('Erreur update Polymarket stats:', error);
+            }
+        }
     </script>
 </body>
 </html>
@@ -2089,7 +2328,7 @@ def api_status():
         'pnl_percent': backend.get_total_pnl_percent(),
         'running': backend.is_running,
         'active_traders': backend.get_active_traders_count(),
-        'traders': backend.data['traders'],
+        'traders': backend.data.get('traders', []),
         'slippage': backend.data.get('slippage', 1.0),
         'currency': backend.data.get('currency', 'USD'),
         'total_capital': total_capital,
@@ -2131,7 +2370,7 @@ def api_traders_performance():
     # Cache miss - recalculer
     performance = []
     
-    for trader in backend.data['traders']:
+    for trader in backend.data.get('traders', []):
         is_active = trader.get('active')
         
         # Récupérer infos wallet pour le solde actuel
@@ -2175,7 +2414,7 @@ def api_toggle_bot():
 
 @app.route('/api/toggle_trader/<int:index>')
 def api_toggle_trader(index):
-    success = backend.toggle_trader(index, not backend.data['traders'][index]['active'])
+    success = backend.toggle_trader(index, not backend.data.get('traders', [])[index]['active'])
     return jsonify({'status': 'ok' if success else 'limit_reached'})
 
 @app.route('/api/update_params')
@@ -2253,7 +2492,7 @@ def api_edit_trader():
         except (ValueError, TypeError):
             return jsonify({'status': 'error', 'message': 'Invalid capital value'})
     
-    if index is not None and 0 <= index < len(backend.data['traders']):
+    if index is not None and 0 <= index < len(backend.data.get('traders', [])):
         backend.update_trader(index, name, emoji, address, capital, per_trade_amount, min_trade_amount)
         return jsonify({'status': 'ok'})
     return jsonify({'status': 'error', 'message': 'Invalid trader index'})
@@ -2531,7 +2770,7 @@ def api_benchmark():
         
         # Récupérer tous les traders avec leurs performances
         all_traders_perf = []
-        for trader in backend.data['traders']:
+        for trader in backend.data.get('traders', []):
             perf = portfolio_tracker.get_trader_performance(trader['address'])
             all_traders_perf.append({
                 'name': trader['name'],
@@ -2580,7 +2819,7 @@ def api_benchmark_ranking():
         traders_with_data = []  # Traders avec données (PnL != 0)
         traders_no_data = []    # Traders sans données (PnL == 0)
         
-        for trader in backend.data['traders']:
+        for trader in backend.data.get('traders', []):
             perf = portfolio_tracker.get_trader_performance(trader['address'])
             pnl_7d = perf.get('pnl_7d', 0.0)
             
@@ -2630,7 +2869,7 @@ def api_benchmark_summary():
         
         # Récupérer les traders et les trier
         all_traders = []
-        for trader in backend.data['traders']:
+        for trader in backend.data.get('traders', []):
             perf = portfolio_tracker.get_trader_performance(trader['address'])
             all_traders.append({
                 'name': trader['name'],
@@ -3027,6 +3266,102 @@ def api_execute_arbitrage():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 🔮 POLYMARKET COPY TRADING API ROUTES (Persisté dans config.json)
+# ═══════════════════════════════════════════════════════════════════
+
+@app.route('/api/polymarket/config', methods=['GET'])
+def api_polymarket_config_get():
+    """Récupère la configuration Polymarket depuis config.json"""
+    return jsonify({
+        'success': True,
+        'config': backend.data.get('polymarket', {})
+    })
+
+@app.route('/api/polymarket/config', methods=['POST'])
+def api_polymarket_config_post():
+    """Met à jour la configuration Polymarket dans config.json"""
+    try:
+        data = request.get_json()
+
+        if 'polymarket' not in backend.data:
+            backend.data['polymarket'] = {}
+
+        pm = backend.data['polymarket']
+        if 'enabled' in data:
+            pm['enabled'] = bool(data['enabled'])
+        if 'tracked_wallets' in data:
+            pm['tracked_wallets'] = data['tracked_wallets']
+        if 'polling_interval' in data:
+            pm['polling_interval'] = int(data['polling_interval'])
+        if 'max_position_usd' in data:
+            pm['max_position_usd'] = float(data['max_position_usd'])
+        if 'min_position_usd' in data:
+            pm['min_position_usd'] = float(data['min_position_usd'])
+        if 'dry_run' in data:
+            pm['dry_run'] = bool(data['dry_run'])
+
+        backend.save_config_sync()  # Sauvegarde SYNCHRONE immédiate
+        return jsonify({'success': True, 'message': 'Configuration Polymarket sauvegardée'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/polymarket/toggle', methods=['POST'])
+def api_polymarket_toggle():
+    """Active/désactive le copy trading Polymarket"""
+    try:
+        data = request.get_json()
+        enabled = data.get('enabled', False)
+
+        if 'polymarket' not in backend.data:
+            backend.data['polymarket'] = {}
+
+        backend.data['polymarket']['enabled'] = enabled
+        backend.save_config_sync()  # Sauvegarde SYNCHRONE immédiate
+
+        return jsonify({
+            'success': True,
+            'enabled': enabled,
+            'message': 'Copy Trading Polymarket ' + ('activé' if enabled else 'désactivé')
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/polymarket/stats', methods=['GET'])
+def api_polymarket_stats():
+    """Récupère les statistiques Polymarket depuis config.json"""
+    pm = backend.data.get('polymarket', {})
+    return jsonify({
+        'success': True,
+        'stats': {
+            'enabled': pm.get('enabled', False),
+            'capital': pm.get('max_position_usd', 0),
+            'signals_detected': pm.get('signals_detected', 0),
+            'trades_copied': pm.get('trades_copied', 0),
+            'simulated_profit': pm.get('simulated_profit', 0),
+            'tracked_wallets_count': len(pm.get('tracked_wallets', [])),
+            'dry_run': pm.get('dry_run', True)
+        }
+    })
+
+@app.route('/api/polymarket/test', methods=['GET'])
+def api_polymarket_test():
+    """Teste la connexion à Polymarket"""
+    try:
+        # Tenter de récupérer des données du subgraph Goldsky
+        import requests
+        url = "https://api.goldsky.com/api/public/project_cl6mb8i9h0003e201j6li0diw/subgraphs/positions-subgraph/0.0.7/gn"
+        query = '{ userBalances(first: 1) { id } }'
+        response = requests.post(url, json={'query': query}, timeout=5)
+        
+        if response.status_code == 200 and 'data' in response.json():
+            return jsonify({'success': True, 'message': 'Connexion Goldsky Subgraph OK'})
+        else:
+            return jsonify({'success': False, 'error': 'Réponse API inattendue'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 
 if __name__ == '__main__':

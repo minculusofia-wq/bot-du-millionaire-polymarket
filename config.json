@@ -1,197 +1,49 @@
 {
-    "slippage": 0,
-    "active_traders_limit": 3,
-    "currency": "USD",
-    "rpc_url": "https://api.mainnet-beta.solana.com",
-    "is_running": false,
-    "params_saved": false,
-    "tp1_percent": 0,
-    "tp1_profit": 0,
-    "tp2_percent": 0,
-    "tp2_profit": 0,
-    "tp3_percent": 0,
-    "tp3_profit": 0,
-    "sl_percent": 0,
-    "sl_loss": 0,
-    "arbitrage": {
-        "enabled": false,
-        "capital_dedicated": 0,
-        "min_profit_percent": 0,
-        "max_routes": 3,
-        "dexes": ["Jupiter", "Raydium", "Orca"]
-    },
-    "traders": [
-        {
-            "name": "Japon",
-            "emoji": "🚀",
-            "address": "EQaxqKT3N981QBmdSUGNzAGK5S26zUwAdRHhBCgn87zD",
-            "active": true,
-            "capital": 100.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 10.0
-        },
-        {
-            "name": "colombie",
-            "emoji": "♛",
-            "address": "2undvDBttb5ohSggdzEhGUq6mhNBf9JsiLTcsguPp51c",
-            "active": false,
-            "capital": 0.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 0.0
-        },
-        {
-            "name": "Euris",
-            "emoji": "🦈",
-            "address": "DfMxre4cKmvogbLrPigxmibVTTQDuzjdXojWzjCXXhzj",
-            "active": false,
-            "capital": 100.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 100.0
-        },
-        {
-            "name": "Alexcooks",
-            "emoji": "🧙",
-            "address": "89HbgWduLwoxcofWpmn1EiF9wEdpgkNDEyPjzZ72mkDi",
-            "active": false,
-            "capital": 0.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 0.0
-        },
-        {
-            "name": "Starter",
-            "emoji": "⚡",
-            "address": "BBPKQwYLyiPjAX2KTFxanR7vxwa7majAF7c7yoaRX8oR",
-            "active": true,
-            "capital": 100.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 10.0
-        },
-        {
-            "name": "Canada",
-            "emoji": "🐉",
-            "address": "CTC7HVkCkPuChSJjArVip375ogvMUtQLhdzLfiPizdEc",
-            "active": false,
-            "capital": 100.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 10.0
-        },
-        {
-            "name": "Italie",
-            "emoji": "🦉",
-            "address": "7BNaxx6KdUYrjACNQZ9He26NBFoFxujQMAfNLnArLGH5",
-            "active": true,
-            "capital": 100.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 10.0
-        },
-        {
-            "name": "Sardaigne",
-            "emoji": "🏯",
-            "address": "DmB4xRNaVH2Y2FVBFsJKYvdPDKYjx2sgC8aQFRBF4gB2",
-            "active": false,
-            "capital": 100.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 100.0
-        },
-        {
-            "name": "Algerie",
-            "emoji": "🏴‍☠️",
-            "address": "EzLu595m6CRxPybAUjSser9FmjDvjS3d3vyX4CPiu8Xn",
-            "active": false,
-            "capital": 0.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 0.0
-        },
-        {
-            "name": "Chester",
-            "emoji": "🚂",
-            "address": "PMJA8UQDyWTFw2Smhyp9jGA6aTaP7jKHR7BPudrgyYN",
-            "active": false,
-            "capital": 100.0,
-            "per_trade_amount": 10.0,
-            "min_trade_amount": 100.0
-        }
-    ],
-    "trader_tp_sl": {
-        "Japon": {
-            "tp": [
-                3,
-                7,
-                15
-            ],
-            "sl": 1.5
-        },
-        "Starter": {
-            "tp": [
-                5,
-                10,
-                20
-            ],
-            "sl": 2.0
-        },
-        "Euris": {
-            "tp": [
-                8,
-                12,
-                25
-            ],
-            "sl": 3.0
-        },
-        "Canada": {
-            "tp": [
-                4,
-                9,
-                18
-            ],
-            "sl": 1.8
-        },
-        "Italie": {
-            "tp": [
-                6,
-                11,
-                22
-            ],
-            "sl": 2.5
-        },
-        "Sardaigne": {
-            "tp": [
-                7,
-                13,
-                24
-            ],
-            "sl": 2.8
-        },
-        "colombie": {
-            "tp": [
-                5,
-                10,
-                20
-            ],
-            "sl": 2.0
-        },
-        "Alexcooks": {
-            "tp": [
-                6,
-                12,
-                23
-            ],
-            "sl": 2.2
-        },
-        "Algerie": {
-            "tp": [
-                4,
-                8,
-                16
-            ],
-            "sl": 1.6
-        },
-        "Chester": {
-            "tp": [
-                7,
-                14,
-                26
-            ],
-            "sl": 3.2
-        }
-    }
+  "is_running": false,
+  "params_saved": false,
+  "slippage": 0,
+  "tp1_percent": 0,
+  "tp1_profit": 0,
+  "tp2_percent": 0,
+  "tp2_profit": 0,
+  "tp3_percent": 0,
+  "tp3_profit": 0,
+  "sl_percent": 0,
+  "sl_loss": 0,
+  "active_traders_limit": 3,
+  "currency": "USD",
+  "wallet_private_key": "",
+  "rpc_url": "https://api.mainnet-beta.solana.com",
+
+  "arbitrage": {
+    "enabled": false,
+    "capital_dedicated": 0,
+    "percent_per_trade": 0,
+    "min_profit_threshold": 0,
+    "min_amount_per_trade": 0,
+    "max_amount_per_trade": 0,
+    "cooldown_seconds": 0,
+    "max_concurrent_trades": 0,
+    "blacklist_tokens": []
+  },
+
+  "polymarket": {
+    "enabled": false,
+    "tracked_wallets": [],
+    "polling_interval": 0,
+    "max_position_usd": 0,
+    "min_position_usd": 0,
+    "dry_run": true,
+    "signals_detected": 0,
+    "trades_copied": 0,
+    "simulated_profit": 0
+  },
+
+  "traders": [
+    {"name": "AlphaMoon", "emoji": "\ud83d\ude80", "address": "EQaxqKT3N981QBmdSUGNzAGK5S26zUwAdRHhBCgn87zD", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0},
+    {"name": "DeFiKing", "emoji": "\u265b", "address": "2undvDBttb5ohSggdzEhGUq6mhNBf9JsiLTcsguPp51c", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0},
+    {"name": "SolShark", "emoji": "\ud83e\udd88", "address": "DfMxre4cKmvogbLrPigxmibVTTQDuzjdXojWzjCXXhzj", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0},
+    {"name": "Merlin", "emoji": "\ud83e\uddd9", "address": "89HbgWduLwoxcofWpmn1EiF9wEdpgkNDEyPjzZ72mkDi", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0},
+    {"name": "Zap", "emoji": "\u26a1", "address": "BBPKQwYLyiPjAX2KTFxanR7vxwa7majAF7c7yoaRX8oR", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0}
+  ]
 }

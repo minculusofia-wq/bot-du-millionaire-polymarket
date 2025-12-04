@@ -49,6 +49,15 @@ class BotBackend:
         for field in required_fields:
             if field not in self.data:
                 print(f"⚠️ Champ manquant: {field}")
+                # Ajouter valeur par défaut pour les champs manquants
+                if field == "traders":
+                    self.data["traders"] = []
+                elif field == "slippage":
+                    self.data["slippage"] = 0
+                elif field == "active_traders_limit":
+                    self.data["active_traders_limit"] = 3
+                elif field == "currency":
+                    self.data["currency"] = "USD"
         
         for trader in self.data.get("traders", []):
             if "capital" not in trader:
@@ -89,12 +98,28 @@ class BotBackend:
             }
             needs_save = True
             print("🔄 Migration: Ajout config arbitrage (defaults à 0)")
-        
+
+        # Ajouter polymarket config si manquant avec defaults à 0
+        if 'polymarket' not in self.data:
+            self.data['polymarket'] = {
+                "enabled": False,
+                "tracked_wallets": [],
+                "polling_interval": 0,
+                "max_position_usd": 0,
+                "min_position_usd": 0,
+                "dry_run": True,
+                "signals_detected": 0,
+                "trades_copied": 0,
+                "simulated_profit": 0
+            }
+            needs_save = True
+            print("🔄 Migration: Ajout config polymarket (defaults à 0)")
+
         # Ajouter params_saved si manquant
         if 'params_saved' not in self.data:
             self.data['params_saved'] = False
             needs_save = True
-        
+
         # Reset à 0 si params_saved = False (pas de sauvegarde explicite)
         if not self.data.get('params_saved', False):
             print("🔄 Reset: Paramètres à 0 (Mode Mirror - Pas de sauvegarde)")
@@ -107,7 +132,7 @@ class BotBackend:
             self.data['tp3_profit'] = 0
             self.data['sl_percent'] = 0
             self.data['sl_loss'] = 0
-            
+
             # Reset arbitrage aussi
             if 'arbitrage' in self.data:
                 self.data['arbitrage']['enabled'] = False
@@ -117,7 +142,24 @@ class BotBackend:
                 self.data['arbitrage']['min_amount_per_trade'] = 0
                 self.data['arbitrage']['max_amount_per_trade'] = 0
                 self.data['arbitrage']['max_concurrent_trades'] = 0
-            
+                self.data['arbitrage']['cooldown_seconds'] = 0
+
+            # Reset polymarket aussi
+            if 'polymarket' in self.data:
+                self.data['polymarket']['enabled'] = False
+                self.data['polymarket']['polling_interval'] = 0
+                self.data['polymarket']['max_position_usd'] = 0
+                self.data['polymarket']['min_position_usd'] = 0
+                self.data['polymarket']['signals_detected'] = 0
+                self.data['polymarket']['trades_copied'] = 0
+                self.data['polymarket']['simulated_profit'] = 0
+
+            # Reset traders per_trade_amount à 0
+            for trader in self.data.get('traders', []):
+                trader['per_trade_amount'] = 0
+                trader['capital'] = 0
+                trader['min_trade_amount'] = 0
+
             needs_save = True
         else:
             print("✅ Paramètres chargés depuis sauvegarde précédente")
@@ -219,7 +261,7 @@ class BotBackend:
 
             total_pnl = 0
             # Boucler sur les traders actifs et additionner leur PnL réel
-            for trader in self.data['traders']:
+            for trader in self.data.get('traders', []):
                 if trader.get('active'):
                     trader_pnl_data = auto_sell_manager.get_trader_pnl(trader['name'])
                     total_pnl += trader_pnl_data.get('pnl', 0)
@@ -282,7 +324,7 @@ class BotBackend:
             return 0
 
     def get_active_traders_count(self):
-        return sum(1 for t in self.data['traders'] if t['active'])
+        return sum(1 for t in self.data.get('traders', []) if t.get('active', False))
 
     def toggle_trader(self, index, state):
         """⚡ OPTIMISÉ: Toggle avec sauvegarde asynchrone"""
