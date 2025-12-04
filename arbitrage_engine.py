@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Arbitrage Engine - Détection et exécution d'opportunités d'arbitrage multi-DEX
-✨ Phase 10: Arbitrage complet avec interface de gestion
-
 Supporte: Raydium, Orca, Jupiter
 Détecte les écarts de prix entre DEX et exécute automatiquement
 """
@@ -12,7 +10,28 @@ from datetime import datetime, timedelta
 import time
 import json
 import os
-from cache_manager import cache_manager
+import threading
+
+
+class SimpleCache:
+    """Cache simple en mémoire avec TTL"""
+    def __init__(self):
+        self._cache = {}
+        self._lock = threading.Lock()
+
+    def get(self, key):
+        with self._lock:
+            if key in self._cache:
+                value, expiry = self._cache[key]
+                if datetime.now() < expiry:
+                    return value
+                del self._cache[key]
+        return None
+
+    def set(self, key, value, ttl=60):
+        with self._lock:
+            expiry = datetime.now() + timedelta(seconds=ttl)
+            self._cache[key] = (value, expiry)
 
 
 class ArbitrageEngine:
@@ -75,6 +94,9 @@ class ArbitrageEngine:
             'Raydium': 0.25,  # 0.25% swap fee
             'Orca': 0.30      # 0.30% swap fee
         }
+
+        # Cache interne
+        self._cache = SimpleCache()
 
         print(f"💰 Arbitrage Engine initialisé")
         print(f"   Statut: {'✅ ACTIVÉ' if self.enabled else '❌ DÉSACTIVÉ'}")
@@ -201,7 +223,7 @@ class ArbitrageEngine:
         """Récupère les prix du token sur tous les DEX"""
         # Vérifier le cache
         cache_key = f"dex_prices_{token_mint}"
-        cached_prices = cache_manager.get(cache_key, namespace="prices")
+        cached_prices = self._cache.get(cache_key)
         if cached_prices is not None:
             return cached_prices
 
@@ -245,7 +267,7 @@ class ArbitrageEngine:
             pass
 
         # Mettre en cache
-        cache_manager.set(cache_key, prices, ttl=10, namespace="prices")
+        self._cache.set(cache_key, prices, ttl=10)
         self.last_update = datetime.now()
 
         return prices

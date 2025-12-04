@@ -1,49 +1,48 @@
 {
   "is_running": false,
   "params_saved": false,
-  "slippage": 0,
-  "tp1_percent": 0,
-  "tp1_profit": 0,
-  "tp2_percent": 0,
-  "tp2_profit": 0,
-  "tp3_percent": 0,
-  "tp3_profit": 0,
-  "sl_percent": 0,
-  "sl_loss": 0,
-  "active_traders_limit": 3,
-  "currency": "USD",
-  "wallet_private_key": "",
-  "rpc_url": "https://api.mainnet-beta.solana.com",
-
-  "arbitrage": {
-    "enabled": false,
-    "capital_dedicated": 0,
-    "percent_per_trade": 0,
-    "min_profit_threshold": 0,
-    "min_amount_per_trade": 0,
-    "max_amount_per_trade": 0,
-    "cooldown_seconds": 0,
-    "max_concurrent_trades": 0,
-    "blacklist_tokens": []
+  "polymarket_wallet": {
+    "address": "",
+    "private_key": ""
   },
-
+  "solana_wallet": {
+    "address": "",
+    "private_key": "",
+    "rpc_url": "https://api.mainnet-beta.solana.com"
+  },
   "polymarket": {
-    "enabled": false,
-    "tracked_wallets": [],
-    "polling_interval": 0,
+    "enabled": true,
+    "dry_run": true,
+    "tracked_wallets": [
+      {
+        "address": "0xee50a31c3f5a7c77824b12a941a54388a2827ed6",
+        "name": "1",
+        "added_at": "2025-12-04T22:51:15.502456"
+      }
+    ],
+    "polling_interval": 30,
     "max_position_usd": 0,
     "min_position_usd": 0,
-    "dry_run": true,
+    "copy_percentage": 100,
     "signals_detected": 0,
     "trades_copied": 0,
-    "simulated_profit": 0
+    "total_profit": 0,
+    "win_rate": 0
   },
-
-  "traders": [
-    {"name": "AlphaMoon", "emoji": "\ud83d\ude80", "address": "EQaxqKT3N981QBmdSUGNzAGK5S26zUwAdRHhBCgn87zD", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0},
-    {"name": "DeFiKing", "emoji": "\u265b", "address": "2undvDBttb5ohSggdzEhGUq6mhNBf9JsiLTcsguPp51c", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0},
-    {"name": "SolShark", "emoji": "\ud83e\udd88", "address": "DfMxre4cKmvogbLrPigxmibVTTQDuzjdXojWzjCXXhzj", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0},
-    {"name": "Merlin", "emoji": "\ud83e\uddd9", "address": "89HbgWduLwoxcofWpmn1EiF9wEdpgkNDEyPjzZ72mkDi", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0},
-    {"name": "Zap", "emoji": "\u26a1", "address": "BBPKQwYLyiPjAX2KTFxanR7vxwa7majAF7c7yoaRX8oR", "active": false, "capital": 0, "per_trade_amount": 0, "min_trade_amount": 0}
-  ]
+  "arbitrage": {
+    "enabled": true,
+    "capital_dedicated": 0,
+    "percent_per_trade": 0,
+    "min_profit_threshold": 0.5,
+    "min_amount_per_trade": 0,
+    "max_amount_per_trade": 0,
+    "cooldown_seconds": 60,
+    "max_concurrent_trades": 3,
+    "dex_list": [
+      "raydium",
+      "orca",
+      "jupiter"
+    ],
+    "blacklist_tokens": []
+  }
 }
