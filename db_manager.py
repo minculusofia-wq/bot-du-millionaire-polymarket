@@ -5,6 +5,7 @@ Gère le stockage des données de trading, portfolios, historiques
 """
 import sqlite3
 import json
+import threading
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -15,6 +16,7 @@ class DBManager:
         self.db_path = db_path
         # ✅ Phase A2: Connection persistante au lieu de nouvelles connexions à chaque fois
         self.conn = None
+        self.lock = threading.Lock() # 🔒 Sécurité thread-safety
         self.pending_commits = []  # Pour batch commits
         self.max_batch_size = 10  # Commit tous les 10 ops
         self._connect()
@@ -51,27 +53,32 @@ class DBManager:
             commit: Si True, commit immédiatement. Sinon, batching.
         """
         max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                if not self.conn:
-                    self._reconnect()
+        
+        # 🔒 Acquérir le verrou pour éviter accès concurrents
+        with self.lock:
+            for attempt in range(max_retries):
+                try:
+                    if not self.conn:
+                        self._reconnect()
 
-                cursor = self.conn.cursor()
-                cursor.execute(query, params)
+                    cursor = self.conn.cursor()
+                    cursor.execute(query, params)
 
-                if commit:
-                    self.conn.commit()
+                    if commit:
+                        self.conn.commit()
 
-                return cursor
-            except sqlite3.OperationalError as e:
-                print(f"⚠️ SQLite OperationalError (tentative {attempt + 1}/{max_retries}): {e}")
-                if attempt < max_retries - 1:
-                    self._reconnect()
-                else:
+                    return cursor
+                except sqlite3.OperationalError as e:
+                    print(f"⚠️ SQLite OperationalError (tentative {attempt + 1}/{max_retries}): {e}")
+                    # Si locked, on peut retenter. Si le lock python est acquis, c'est peut-être un autre processus ?
+                    # Ou alors la connexion est mauvaise.
+                    if attempt < max_retries - 1:
+                        self._reconnect()
+                    else:
+                        raise
+                except Exception as e:
+                    print(f"❌ Erreur SQLite: {e}")
                     raise
-            except Exception as e:
-                print(f"❌ Erreur SQLite: {e}")
-                raise
 
         return None
 
@@ -188,6 +195,59 @@ class DBManager:
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        # ✅ NEW: Table pour les trades réels Polymarket
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS polymarket_trades (
+                order_id TEXT PRIMARY KEY,
+                timestamp TEXT,
+                market_slug TEXT,
+                token_id TEXT,
+                side TEXT,
+                price REAL,
+                size REAL,
+                value_usd REAL,
+                status TEXT,
+                pnl REAL DEFAULT 0,
+                signal_type TEXT,
+                tx_hash TEXT
+            )
+        ''')
+
+        c.execute('CREATE INDEX IF NOT EXISTS idx_poly_trades_ts ON polymarket_trades(timestamp DESC)')
+
+        # ✅ NEW: Table pour les positions actives du bot (Version 2.0 - Positions séparées par trader)
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS bot_positions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                token_id TEXT NOT NULL,
+                source_wallet TEXT NOT NULL,
+                market_slug TEXT NOT NULL,
+                outcome TEXT,
+                side TEXT,
+                shares REAL NOT NULL,
+                size REAL NOT NULL,
+                avg_price REAL NOT NULL,
+                entry_price REAL NOT NULL,
+                current_price REAL,
+                value_usd REAL,
+                sl_percent REAL,
+                tp_percent REAL,
+                unrealized_pnl REAL DEFAULT 0,
+                realized_pnl REAL DEFAULT 0,
+                status TEXT DEFAULT 'OPEN',
+                opened_at TEXT NOT NULL,
+                closed_at TEXT,
+                last_updated TEXT NOT NULL,
+                UNIQUE(token_id, source_wallet)
+            )
+        ''')
+        
+        # Index pour performances
+        c.execute('CREATE INDEX IF NOT EXISTS idx_source_wallet ON bot_positions(source_wallet)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_status ON bot_positions(status)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_token_source ON bot_positions(token_id, source_wallet)')
+
 
         self.conn.commit()
         
@@ -437,5 +497,331 @@ class DBManager:
             trades.append(trade)
 
         return trades
+
+    def save_polymarket_trade(self, trade_data: Dict):
+        """Sauvegarde un trade Polymarket"""
+        self._execute('''
+            INSERT OR REPLACE INTO polymarket_trades
+            (order_id, timestamp, market_slug, token_id, side, price, size, value_usd, status, pnl, signal_type, tx_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            trade_data.get('order_id', ''),
+            trade_data.get('timestamp', datetime.now().isoformat()),
+            trade_data.get('market_slug', ''),
+            trade_data.get('token_id', ''),
+            trade_data.get('side', ''),
+            float(trade_data.get('price', 0)),
+            float(trade_data.get('size', 0)),
+            float(trade_data.get('value_usd', 0)),
+            trade_data.get('status', 'EXECUTED'),
+            float(trade_data.get('pnl', 0)),
+            trade_data.get('signal_type', ''),
+            trade_data.get('tx_hash', '')
+        ), commit=True)
+
+    def get_polymarket_trades(self, limit: int = 50) -> List[Dict]:
+        """Récupère l'historique des trades Polymarket"""
+        self.conn.row_factory = sqlite3.Row
+        c = self.conn.cursor()
+        c.execute('''
+            SELECT * FROM polymarket_trades
+            ORDER BY timestamp DESC
+            LIMIT ?
+        ''', (limit,))
+        
+        rows = c.fetchall()
+        return [dict(row) for row in rows]
+
+    def get_daily_pnl(self, days: int = 30) -> List[Dict]:
+        """Aggrège le PnL journalier réalisé des 30 derniers jours"""
+        self.conn.row_factory = sqlite3.Row
+        c = self.conn.cursor()
+        c.execute('''
+            SELECT date(timestamp) as day, 
+                   SUM(pnl) as daily_pnl,
+                   COUNT(*) as trades_count,
+                   SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as winning_trades
+            FROM polymarket_trades
+            WHERE status IN ('EXECUTED', 'CLOSED') 
+            GROUP BY day
+            ORDER BY day DESC
+            LIMIT ?
+        ''', (days,))
+        
+        rows = c.fetchall()
+        return [dict(row) for row in rows]
+
+    def get_trader_performance(self, trader_address: str) -> Dict:
+        """
+        Calcule les performances agrégées d'un trader copié.
+        Basé sur les positions fermées (CLOSED_MANUAL, CLOSED_TP, CLOSED_SL)
+        """
+        self.conn.row_factory = sqlite3.Row
+        c = self.conn.cursor()
+        
+        # Récupérer toutes les positions fermées pour ce trader
+        c.execute('''
+            SELECT 
+                COUNT(*) as total_trades,
+                SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN realized_pnl < 0 THEN 1 ELSE 0 END) as losses,
+                SUM(realized_pnl) as total_pnl,
+                SUM(value_usd) as total_invested,
+                SUM(CASE WHEN realized_pnl > 0 THEN realized_pnl ELSE 0 END) as gross_profit,
+                SUM(CASE WHEN realized_pnl < 0 THEN ABS(realized_pnl) ELSE 0 END) as gross_loss
+            FROM bot_positions
+            WHERE source_wallet = ? 
+            AND status LIKE 'CLOSED%'
+        ''', (trader_address,))
+        
+        row = c.fetchone()
+        
+        stats = {
+            'total_trades': 0,
+            'wins': 0,
+            'losses': 0,
+            'win_rate': 0.0,
+            'profit_factor': 0.0,
+            'total_pnl': 0.0,
+            'total_invested': 0.0
+        }
+        
+        if row and row['total_trades'] > 0:
+            stats['total_trades'] = row['total_trades']
+            stats['wins'] = row['wins']
+            stats['losses'] = row['losses']
+            stats['total_pnl'] = row['total_pnl'] or 0.0
+            stats['total_invested'] = row['total_invested'] or 0.0
+            
+            # Win Rate
+            if stats['total_trades'] > 0:
+                stats['win_rate'] = (stats['wins'] / stats['total_trades']) * 100
+                
+            # Profit Factor
+            gross_loss = row['gross_loss'] or 0.0
+            gross_profit = row['gross_profit'] or 0.0
+            if gross_loss > 0:
+                stats['profit_factor'] = gross_profit / gross_loss
+            elif gross_profit > 0:
+                stats['profit_factor'] = 99.0 # Infini (que des gains)
+            else:
+                stats['profit_factor'] = 0.0
+
+        return stats
+
+    def add_position(self, position_data: Dict) -> int:
+        """Ajoute une nouvelle position (Version 2.0)
+        
+        Args:
+            position_data: Dictionnaire avec les données de la position
+            
+        Returns:
+            ID de la position créée
+        """
+        cursor = self._execute('''
+            INSERT INTO bot_positions
+            (token_id, source_wallet, market_slug, outcome, side, shares, size, 
+             avg_price, entry_price, current_price, value_usd, sl_percent, tp_percent,
+             unrealized_pnl, status, opened_at, last_updated, highest_price, use_trailing)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            position_data.get('token_id'),
+            position_data.get('source_wallet'),
+            position_data.get('market_slug'),
+            position_data.get('outcome'),
+            position_data.get('side', 'BUY'),
+            float(position_data.get('shares', 0)),
+            float(position_data.get('size', 0)),
+            float(position_data.get('avg_price', 0)),
+            float(position_data.get('entry_price', 0)),
+            float(position_data.get('current_price', 0)),
+            float(position_data.get('value_usd', 0)),
+            position_data.get('sl_percent'),
+            position_data.get('tp_percent'),
+            float(position_data.get('unrealized_pnl', 0)),
+            position_data.get('status', 'OPEN'),
+            position_data.get('opened_at', datetime.now().isoformat()),
+            datetime.now().isoformat(),
+            float(position_data.get('entry_price', 0)), # Initial highest_price = entry_price
+            int(position_data.get('use_trailing', 0))
+        ), commit=True)
+        
+        return cursor.lastrowid
+    
+    def update_bot_position(self, position_data: Dict):
+        """Met à jour une position active du bot (rétrocompatibilité)
+        
+        Note: Cette méthode est conservée pour rétrocompatibilité.
+        Pour les nouvelles fonctionnalités, utiliser add_position() ou update_position_by_id()
+        """
+        # Convertir vers le nouveau format si nécessaire
+        if 'source_wallet' not in position_data:
+            position_data['source_wallet'] = 'LEGACY'
+        
+        # Si size ~ 0, on supprime la position
+        if float(position_data.get('size', 0)) < 0.0001:
+            self._execute(
+                'DELETE FROM bot_positions WHERE token_id = ? AND source_wallet = ?',
+                (position_data.get('token_id'), position_data.get('source_wallet'))
+            )
+        else:
+            # Essayer d'insérer ou mettre à jour
+            self._execute('''
+                INSERT INTO bot_positions
+                (token_id, source_wallet, market_slug, outcome, side, shares, size,
+                 avg_price, entry_price, current_price, value_usd, unrealized_pnl,
+                 status, opened_at, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(token_id, source_wallet) DO UPDATE SET
+                    shares = excluded.shares,
+                    size = excluded.size,
+                    avg_price = excluded.avg_price,
+                    current_price = excluded.current_price,
+                    value_usd = excluded.value_usd,
+                    unrealized_pnl = excluded.unrealized_pnl,
+                    last_updated = excluded.last_updated
+            ''', (
+                position_data.get('token_id'),
+                position_data.get('source_wallet', 'LEGACY'),
+                position_data.get('market_slug'),
+                position_data.get('outcome'),
+                position_data.get('side', 'BUY'),
+                float(position_data.get('size', 0)),
+                float(position_data.get('size', 0)),
+                float(position_data.get('avg_entry_price', 0)),
+                float(position_data.get('avg_entry_price', 0)),
+                float(position_data.get('current_price', 0)),
+                float(position_data.get('value_usd', 0)),
+                float(position_data.get('pnl', 0)),
+                'OPEN',
+                datetime.now().isoformat(),
+                datetime.now().isoformat()
+            ))
+
+    def get_bot_positions(self, status: str = 'OPEN') -> List[Dict]:
+        """Récupère toutes les positions actives (Version 2.0)
+        
+        Args:
+            status: Statut des positions ('OPEN', 'CLOSED_SL', 'CLOSED_TP', 'CLOSED_MANUAL', ou None pour toutes)
+        """
+        self.conn.row_factory = sqlite3.Row
+        c = self.conn.cursor()
+        
+        if status:
+            c.execute('SELECT * FROM bot_positions WHERE status = ? ORDER BY opened_at DESC', (status,))
+        else:
+            c.execute('SELECT * FROM bot_positions ORDER BY opened_at DESC')
+        
+        rows = c.fetchall()
+        
+        # Convertir en liste avec structure compatible frontend
+        positions = []
+        for row in rows:
+            pos = dict(row)
+            # Re-mapping pour compatibilité frontend bot.py
+            positions.append({
+                'id': pos['id'],  # ID unique de la position
+                'position_id': pos['id'],
+                'token_id': pos['token_id'],
+                'source_wallet': pos['source_wallet'],
+                'asset_id': pos['token_id'],
+                'market': pos['market_slug'] or 'Unknown Market',
+                'market_slug': pos['market_slug'],
+                'outcome': pos.get('outcome'),
+                'side': pos['side'],
+                'amount': pos['value_usd'],
+                'shares': pos['shares'],
+                'size': pos['size'],
+                'entry_price': pos['entry_price'],
+                'avg_price': pos['avg_price'],
+                'current_price': pos['current_price'],
+                'pnl': pos['unrealized_pnl'],
+                'unrealized_pnl': pos['unrealized_pnl'],
+                'realized_pnl': pos.get('realized_pnl', 0),
+                'sl_percent': pos.get('sl_percent'),
+                'tp_percent': pos.get('tp_percent'),
+                'status': pos['status'],
+                'opened_at': pos['opened_at'],
+                'closed_at': pos.get('closed_at'),
+                'last_updated': pos['last_updated']
+            })
+        return positions
+    
+    def get_position_by_id(self, position_id: int) -> Optional[Dict]:
+        """Récupère une position par son ID"""
+        self.conn.row_factory = sqlite3.Row
+        c = self.conn.cursor()
+        c.execute('SELECT * FROM bot_positions WHERE id = ?', (position_id,))
+        row = c.fetchone()
+        
+        if row:
+            return dict(row)
+        return None
+    
+    def get_positions_by_wallet(self, source_wallet: str, status: str = 'OPEN') -> List[Dict]:
+        """Récupère toutes les positions d'un trader spécifique
+        
+        Args:
+            source_wallet: Adresse du trader copié
+            status: Statut des positions (None pour toutes)
+        """
+        self.conn.row_factory = sqlite3.Row
+        c = self.conn.cursor()
+        
+        if status:
+            c.execute(
+                'SELECT * FROM bot_positions WHERE source_wallet = ? AND status = ? ORDER BY opened_at DESC',
+                (source_wallet, status)
+            )
+        else:
+            c.execute(
+                'SELECT * FROM bot_positions WHERE source_wallet = ? ORDER BY opened_at DESC',
+                (source_wallet,)
+            )
+        
+        rows = c.fetchall()
+        return [dict(row) for row in rows]
+    
+    def update_position_price(self, position_id: int, current_price: float, unrealized_pnl: float):
+        """Met à jour le prix et PnL d'une position"""
+        self._execute('''
+            UPDATE bot_positions
+            SET current_price = ?, unrealized_pnl = ?, last_updated = ?
+            WHERE id = ?
+        ''', (current_price, unrealized_pnl, datetime.now().isoformat(), position_id), commit=True)
+    
+    def update_position_highest_price(self, position_id: int, highest_price: float):
+        """Met à jour le highest_price d'une position"""
+        self._execute('''
+            UPDATE bot_positions
+            SET highest_price = ?, last_updated = ?
+            WHERE id = ?
+        ''', (highest_price, datetime.now().isoformat(), position_id))
+
+    def update_position_shares(self, position_id: int, new_shares: float):
+        """Met à jour le nombre de shares d'une position (fermeture partielle)"""
+        self._execute('''
+            UPDATE bot_positions
+            SET shares = ?, size = ?, last_updated = ?
+            WHERE id = ?
+        ''', (new_shares, new_shares, datetime.now().isoformat(), position_id), commit=True)
+    
+    def close_position(self, position_id: int, realized_pnl: float, status: str = 'CLOSED_MANUAL'):
+        """Ferme une position
+        
+        Args:
+            position_id: ID de la position
+            realized_pnl: PnL réalisé
+            status: 'CLOSED_MANUAL', 'CLOSED_SL', 'CLOSED_TP'
+        """
+        self._execute('''
+            UPDATE bot_positions
+            SET status = ?, realized_pnl = ?, closed_at = ?, last_updated = ?
+            WHERE id = ?
+        ''', (status, realized_pnl, datetime.now().isoformat(), datetime.now().isoformat(), position_id), commit=True)
+    
+    def get_open_positions(self) -> List[Dict]:
+        """Récupère uniquement les positions ouvertes"""
+        return self.get_bot_positions(status='OPEN')
 
 db_manager = DBManager()

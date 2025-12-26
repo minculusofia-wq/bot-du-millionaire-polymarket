@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot du Millionnaire - Polymarket Copy Trading</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- MODAL CONFIG WALLET -->
+    <div id="wallet-config-modal" class="modal-overlay">
+        <div class="modal">
+            <button class="modal-close" onclick="closeWalletConfigModal()">&times;</button>
+            <h3>⚙️ Configuration du Wallet</h3>
+            <p style="color: #888; margin-bottom: 20px;" id="modal-wallet-name">Wallet</p>
+            <input type="hidden" id="modal-wallet-address">
+            <div class="form-group">
+                <label>💰 Capital Alloué ($)</label>
+                <input type="number" id="modal-capital" value="0" min="0" step="1" placeholder="Ex: 1000">
+                <p style="color: #666; font-size: 11px; margin-top: 5px;">Montant total dédié à ce trader</p>
+            </div>
+            <div class="form-group">
+                <label>📊 % par Trade</label>
+                <input type="number" id="modal-percent" value="0" min="0" max="100" step="1" placeholder="Ex: 10">
+                <p style="color: #666; font-size: 11px; margin-top: 5px;">Pourcentage du capital utilisé pour chaque
+                    trade</p>
+            </div>
+
+            <!-- ✨ NOUVEAUX CHAMPS SL/TP -->
+            <div class="form-group">
+                <label>🛑 Stop Loss (%)</label>
+                <input type="number" id="modal-sl" value="" min="-100" max="0" step="0.1" placeholder="Ex: -10">
+                <p style="color: #666; font-size: 11px; margin-top: 5px;">Perte maximale acceptée (ex: -10 pour -10%)
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label>🎯 Take Profit (%)</label>
+                <input type="number" id="modal-tp" value="" min="0" step="0.1" placeholder="Ex: 20">
+                <p style="color: #666; font-size: 11px; margin-top: 5px;">Profit cible (ex: 20 pour +20%)</p>
+            </div>
+        </div>
+
+        <!-- ✨ TRAILING STOP -->
+        <div class="form-group" style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+            <label class="toggle-switch">
+                <input type="checkbox" id="modal-use-trailing">
+                <span class="toggle-slider"></span>
+            </label>
+            <div>
+                <label for="modal-use-trailing" style="cursor: pointer; font-weight: bold;">🛡️ Activer Trailing
+                    Stop</label>
+                <p style="color: #666; font-size: 11px; margin-top: 2px;">Utilise le SL comme distance suiveuse (ex:
+                    -10% du plus haut)</p>
+            </div>
+        </div>
+
+        <!-- ✨ KELLY CRITERION -->
+        <div class="form-group" style="margin-top: 20px; display: flex; align-items: center; gap: 10px;">
+            <label class="toggle-switch">
+                <input type="checkbox" id="modal-use-kelly">
+                <span class="toggle-slider"></span>
+            </label>
+            <div>
+                <label for="modal-use-kelly" style="cursor: pointer; font-weight: bold;">🧠 Activer Algo Kelly</label>
+                <p style="color: #666; font-size: 11px; margin-top: 2px;">Ajuste automatiquement la mise selon la
+                    performance du trader</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 25px;">
+            <button class="btn btn-primary" onclick="saveWalletConfig()" style="width: 100%;">Sauvegarder</button>
+        </div>
+    </div>
+    </div>
+
+    <!-- MODAL VENTE POSITION -->
+    <div id="sell-modal" class="modal-overlay">
+        <div class="modal">
+            <button class="modal-close" onclick="closeSellModal()">&times;</button>
+            <h3>💰 Vendre Position</h3>
+            <input type="hidden" id="sell-position-id">
+            <div class="position-info-modal">
+                <p>Marché: <span class="value" id="sell-market-name">-</span></p>
+                <p>Position: <span class="value" id="sell-position-side">-</span></p>
+                <p>Montant: <span class="value" id="sell-position-amount">$0.00</span></p>
+                <p>PnL: <span class="value" id="sell-position-pnl">$0.00</span></p>
+            </div>
+            <p style="color: #888; margin-bottom: 10px;">Choisissez le pourcentage à vendre:</p>
+            <div class="sell-percent-btns">
+                <button class="sell-percent-btn" onclick="selectSellPercent(25)">25%</button>
+                <button class="sell-percent-btn" onclick="selectSellPercent(50)">50%</button>
+                <button class="sell-percent-btn" onclick="selectSellPercent(75)">75%</button>
+                <button class="sell-percent-btn" onclick="selectSellPercent(100)">100%</button>
+            </div>
+            <input type="hidden" id="sell-percent-value" value="100">
+            <div style="margin-top: 20px;">
+                <button class="btn btn-danger" onclick="executeSell()" style="width: 100%;">🔻 Confirmer la
+                    Vente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <div class="header">
+        <h1>🎯 Bot du Millionnaire</h1>
+        <div class="header-status">
+            <span id="bot-status" class="status-badge status-off">BOT DÉSACTIVÉ</span>
+            <button id="toggle-bot-btn" class="btn btn-primary" onclick="toggleBot()">Activer le Bot</button>
+        </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <div class="nav-tabs">
+        <div class="nav-tab active" onclick="showTab('dashboard')">📊 Dashboard</div>
+        <div class="nav-tab" onclick="showTab('live')">📋 Flux Trades</div>
+        <div class="nav-tab" onclick="showTab('wallets')">👛 Wallets Suivis</div>
+        <div class="nav-tab" onclick="showTab('history')">📜 Historique</div>
+
+        <div class="nav-tab" onclick="showTab('settings')">⚙️ Paramètres</div>
+    </div>
+
+    <div class="container">
+        <!-- ============ DASHBOARD ============ -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>📡 Signaux Détectés</h3>
+                    <div class="value" id="signals-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>📈 Trades Copiés</h3>
+                    <div class="value" id="trades-copied">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>💰 Profit Total</h3>
+                    <div class="value" id="total-profit">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <h3>🎯 Win Rate</h3>
+                    <div class="value" id="win-rate">0%</div>
+                </div>
+            </div>
+
+            <!-- ✨ Graphique PnL -->
+            <div style="margin-top: 20px; height: 300px;">
+                <canvas id="pnlChart"></canvas>
+            </div>
+
+            <!-- SOLDES WALLETS -->
+            <div class="two-columns">
+                <div class="card">
+                    <h2>👛 Wallet Polymarket (Polygon)</h2>
+                    <div id="pm-wallet-info">
+                        <p style="color: #888; font-size: 12px; margin-bottom: 10px;" id="pm-wallet-addr">Non configuré
+                        </p>
+                        <div class="flex flex-between flex-center">
+                            <span>Balance USDC</span>
+                            <span class="value" id="pm-balance-usdc" style="font-size: 20px;">$0.00</span>
+                        </div>
+                        <div class="flex flex-between flex-center" style="margin-top: 8px;">
+                            <span>Balance MATIC</span>
+                            <span id="pm-balance-matic" style="color: #00B0FF;">0.00 MATIC</span>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+
+            <div class="two-columns">
+                <div class="card">
+                    <h2>📊 Polymarket Copy Trading</h2>
+                    <div class="flex flex-between flex-center" style="margin-bottom: 15px;">
+                        <span>Status</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="polymarket-toggle" onchange="togglePolymarket()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                </div>
+
+
+            </div>
+
+            <div class="card">
+                <h2>📈 Positions Actives</h2>
+                <div id="active-positions">
+                    <p style="color: #888; text-align: center; padding: 20px;">Aucune position active</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ LIVE TRADING ============ -->
+        <div id="tab-live" class="tab-content">
+            <div class="card">
+                <h2>📋 Flux des Trades (Wallets Suivis)</h2>
+                <div id="live-feed" style="max-height: 500px; overflow-y: auto;">
+                    <p style="color: #888; text-align: center; padding: 20px;">
+                        En attente de signaux...
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📊 Derniers Trades Copiés</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Marché</th>
+                            <th>Position</th>
+                            <th>Montant</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-trades">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #888;">Aucun trade récent</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============ WALLETS SUIVIS ============ -->
+        <div id="tab-wallets" class="tab-content">
+            <div class="card">
+                <h2>👛 Ajouter un Wallet à Suivre</h2>
+                <div class="form-group">
+                    <label>Adresse du Wallet Polymarket</label>
+                    <input type="text" id="new-wallet-address" placeholder="0x...">
+                </div>
+                <div class="form-group">
+                    <label>Nom (optionnel)</label>
+                    <input type="text" id="new-wallet-name" placeholder="Whale #1">
+                </div>
+                <button class="btn btn-primary" onclick="addWallet()">+ Ajouter Wallet</button>
+            </div>
+
+            <div class="card">
+                <h2>📋 Wallets Suivis</h2>
+                <div id="wallets-list" class="wallet-list">
+                    <p style="color: #888; text-align: center; padding: 20px;">Aucun wallet suivi</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🏆 Benchmark des Wallets</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rang</th>
+                            <th>Wallet</th>
+                            <th>Win Rate</th>
+                            <th>PnL</th>
+                            <th>Trades</th>
+                        </tr>
+                    </thead>
+                    <tbody id="benchmark-table">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #888;">Pas de données</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============ HISTORIQUE ============ -->
+        <div id="tab-history" class="tab-content">
+            <div class="card">
+                <h2>📜 Historique des Trades</h2>
+                <div class="flex gap-10" style="margin-bottom: 15px;">
+                    <button class="btn btn-secondary" onclick="filterHistory('all')">Tous</button>
+                    <button class="btn btn-secondary" onclick="filterHistory('won')">Gagnés</button>
+                    <button class="btn btn-secondary" onclick="filterHistory('lost')">Perdus</button>
+                    <button class="btn btn-secondary" onclick="filterHistory('pending')">En cours</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Marché</th>
+                            <th>Position</th>
+                            <th>Prix Entrée</th>
+                            <th>Prix Sortie</th>
+                            <th>PnL</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #888;">Aucun historique</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+
+        <!-- ============ PARAMÈTRES ============ -->
+        <div id="tab-settings" class="tab-content">
+            <div class="two-columns">
+                <!-- WALLET POLYMARKET -->
+                <div class="card">
+                    <h2>👛 Wallet Polymarket (Polygon)</h2>
+                    <div class="form-group">
+                        <label>Adresse du Wallet</label>
+                        <input type="text" id="pm-wallet-address" placeholder="0x...">
+                    </div>
+                    <div class="form-group">
+                        <label>Clé Privée</label>
+                        <input type="password" id="pm-wallet-key"
+                            placeholder="Clé privée (stockée en mémoire uniquement)">
+                    </div>
+                    <button class="btn btn-primary" onclick="savePolymarketWallet()">Sauvegarder</button>
+                    <p style="color: #888; font-size: 11px; margin-top: 10px;">
+                        ⚠️ La clé privée n'est jamais sauvegardée sur disque
+                    </p>
+                </div>
+
+
+            </div>
+
+            <div class="two-columns">
+                <!-- CONFIG POLYMARKET -->
+                <div class="card">
+                    <h2>📊 Configuration Polymarket</h2>
+                    <div class="form-group">
+                        <label>Intervalle de Polling (secondes)</label>
+                        <input type="number" id="pm-polling" value="30" min="10">
+                    </div>
+                    <div class="form-group">
+                        <label>Position Maximum ($)</label>
+                        <input type="number" id="pm-max-position" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Position Minimum ($)</label>
+                        <input type="number" id="pm-min-position" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Pourcentage à copier (%)</label>
+                        <input type="number" id="pm-copy-percent" value="100" min="1" max="100">
+                    </div>
+                    <button class="btn btn-primary" onclick="savePolymarketConfig()">Sauvegarder Config</button>
+                </div>
+
+
+            </div>
+
+            <div class="card">
+                <h2>🔧 Actions</h2>
+                <div class="flex gap-10">
+                    <button class="btn btn-secondary" onclick="exportData()">📤 Exporter Données</button>
+                    <button class="btn btn-danger" onclick="resetStats()">🗑️ Reset Statistiques</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN JS -->
+    <!-- Socket.IO & Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

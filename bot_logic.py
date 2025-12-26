@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Bot Logic - Backend pour Polymarket Copy Trading + Arbitrage Solana
+Bot Logic - Backend pour Polymarket Copy Trading
 """
 import json
 import threading
@@ -35,10 +35,13 @@ class BotBackend:
         needs_save = False
 
         # Supprimer les anciennes clés si présentes
-        old_keys = ['total_capital', 'slippage', 'tp1_percent', 'tp1_profit',
-                    'tp2_percent', 'tp2_profit', 'tp3_percent', 'tp3_profit',
-                    'sl_percent', 'sl_loss', 'active_traders_limit', 'currency',
-                    'wallet_private_key', 'rpc_url', 'traders']
+        old_keys = [
+            'total_capital', 'slippage', 'tp1_percent', 'tp1_profit',
+            'tp2_percent', 'tp2_profit', 'tp3_percent', 'tp3_profit',
+            'sl_percent', 'sl_loss', 'active_traders_limit', 'currency',
+            'wallet_private_key', 'rpc_url', 'traders',
+            'solana_wallet', 'arbitrage'  # Removing these as they are no longer used
+        ]
         for key in old_keys:
             if key in self.data:
                 del self.data[key]
@@ -64,21 +67,11 @@ class BotBackend:
             needs_save = True
             print("🔄 Migration: Ajout polymarket_wallet")
 
-        # Ajouter solana_wallet si manquant
-        if 'solana_wallet' not in self.data:
-            self.data['solana_wallet'] = {
-                "address": "",
-                "private_key": "",
-                "rpc_url": "https://api.mainnet-beta.solana.com"
-            }
-            needs_save = True
-            print("🔄 Migration: Ajout solana_wallet")
-
         # Ajouter polymarket config si manquant
         if 'polymarket' not in self.data:
             self.data['polymarket'] = {
                 "enabled": False,
-                "dry_run": True,
+                # "dry_run": False, # REMOVED: No simulation
                 "tracked_wallets": [],
                 "polling_interval": 30,
                 "max_position_usd": 0,
@@ -92,47 +85,11 @@ class BotBackend:
             needs_save = True
             print("🔄 Migration: Ajout config polymarket")
 
-        # Ajouter arbitrage config si manquant
-        if 'arbitrage' not in self.data:
-            self.data['arbitrage'] = {
-                "enabled": False,
-                "capital_dedicated": 0,
-                "percent_per_trade": 0,
-                "min_profit_threshold": 0.5,
-                "min_amount_per_trade": 0,
-                "max_amount_per_trade": 0,
-                "cooldown_seconds": 60,
-                "max_concurrent_trades": 3,
-                "dex_list": ["raydium", "orca", "jupiter"],
-                "blacklist_tokens": []
-            }
+        # Enforce dry_run removal from existing config if present
+        if 'polymarket' in self.data and 'dry_run' in self.data['polymarket']:
+            del self.data['polymarket']['dry_run']
             needs_save = True
-            print("🔄 Migration: Ajout config arbitrage")
-
-        # Reset à 0 si params_saved = False
-        if not self.data.get('params_saved', False):
-            print("🔄 Reset: Paramètres à 0 (pas de sauvegarde précédente)")
-
-            # Reset polymarket
-            if 'polymarket' in self.data:
-                self.data['polymarket']['enabled'] = False
-                self.data['polymarket']['polling_interval'] = 30
-                self.data['polymarket']['max_position_usd'] = 0
-                self.data['polymarket']['min_position_usd'] = 0
-                self.data['polymarket']['signals_detected'] = 0
-                self.data['polymarket']['trades_copied'] = 0
-                self.data['polymarket']['total_profit'] = 0
-                self.data['polymarket']['win_rate'] = 0
-
-            # Reset arbitrage
-            if 'arbitrage' in self.data:
-                self.data['arbitrage']['enabled'] = False
-                self.data['arbitrage']['capital_dedicated'] = 0
-                self.data['arbitrage']['percent_per_trade'] = 0
-
-            needs_save = True
-        else:
-            print("✅ Paramètres chargés depuis sauvegarde précédente")
+            print("🔄 Migration: Suppression de dry_run (Mode réel forcé)")
 
         if needs_save:
             self.save_config_sync()
@@ -149,15 +106,9 @@ class BotBackend:
                 "private_key": ""
             },
 
-            "solana_wallet": {
-                "address": "",
-                "private_key": "",
-                "rpc_url": "https://api.mainnet-beta.solana.com"
-            },
-
             "polymarket": {
                 "enabled": False,
-                "dry_run": True,
+                # "dry_run": False, # REMOVE simulation
                 "tracked_wallets": [],
                 "polling_interval": 30,
                 "max_position_usd": 0,
@@ -167,19 +118,6 @@ class BotBackend:
                 "trades_copied": 0,
                 "total_profit": 0,
                 "win_rate": 0
-            },
-
-            "arbitrage": {
-                "enabled": False,
-                "capital_dedicated": 0,
-                "percent_per_trade": 0,
-                "min_profit_threshold": 0.5,
-                "min_amount_per_trade": 0,
-                "max_amount_per_trade": 0,
-                "cooldown_seconds": 60,
-                "max_concurrent_trades": 3,
-                "dex_list": ["raydium", "orca", "jupiter"],
-                "blacklist_tokens": []
             }
         }
         self.save_config_sync()

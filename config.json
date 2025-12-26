@@ -1,23 +1,20 @@
 {
-  "is_running": false,
+  "is_running": true,
   "params_saved": false,
   "polymarket_wallet": {
-    "address": "",
+    "address": "0x9D1096179E88820002f0B1feF531EA418a849C26",
     "private_key": ""
-  },
-  "solana_wallet": {
-    "address": "",
-    "private_key": "",
-    "rpc_url": "https://api.mainnet-beta.solana.com"
   },
   "polymarket": {
     "enabled": true,
-    "dry_run": true,
     "tracked_wallets": [
       {
         "address": "0xee50a31c3f5a7c77824b12a941a54388a2827ed6",
         "name": "1",
-        "added_at": "2025-12-04T22:51:15.502456"
+        "added_at": "2025-12-04T22:51:15.502456",
+        "capital_allocated": 100.0,
+        "percent_per_trade": 10.0,
+        "active": true
       }
     ],
     "polling_interval": 30,
@@ -28,21 +25,5 @@
     "trades_copied": 0,
     "total_profit": 0,
     "win_rate": 0
-  },
-  "arbitrage": {
-    "enabled": true,
-    "capital_dedicated": 0,
-    "percent_per_trade": 0,
-    "min_profit_threshold": 0.5,
-    "min_amount_per_trade": 0,
-    "max_amount_per_trade": 0,
-    "cooldown_seconds": 60,
-    "max_concurrent_trades": 3,
-    "dex_list": [
-      "raydium",
-      "orca",
-      "jupiter"
-    ],
-    "blacklist_tokens": []
   }
 }

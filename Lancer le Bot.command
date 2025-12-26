@@ -1,16 +1,14 @@
 #!/bin/bash
 
 # Bot du Millionnaire - Lancer sur macOS
-# Assurez-vous d'avoir installé Python 3 et les dépendances
+# Version corrigée : Utilise un environnement virtuel (venv) pour éviter les erreurs de permissions.
 
-# Se placer dans le dossier du bot
+# 1. Se placer dans le dossier du bot
 cd "$(dirname "$0")"
 
-# Chercher Python 3 (essayer plusieurs emplacements)
+# 2. Chercher Python 3
 if command -v python3 &> /dev/null; then
     PYTHON=$(command -v python3)
-elif command -v python &> /dev/null; then
-    PYTHON=$(command -v python)
 else
     echo "❌ Erreur : Python 3 n'est pas installé"
     echo "📥 Installez Python depuis : https://www.python.org/downloads/"
@@ -18,16 +16,28 @@ else
 fi
 
 echo "✅ Python trouvé : $PYTHON"
+echo "♻️  Initialisation de l'environnement virtuel (cela peut prendre quelques secondes la première fois)..."
 
-# Vérifier si les dépendances sont installées
-echo "🔍 Vérification des dépendances..."
-$PYTHON -m pip install -r requirements.txt --quiet
+# 3. Créer/Activer venv
+if [ ! -d "venv" ]; then
+    echo "📦 Création du dossier 'venv'..."
+    $PYTHON -m venv venv
+    
+    echo "📥 Installation des dépendances..."
+    ./venv/bin/pip install --upgrade pip
+    ./venv/bin/pip install -r requirements.txt
+else
+    # Mettre à jour si nécessaire
+    ./venv/bin/pip install -r requirements.txt
+    echo "✅ Environnement virtuel prêt."
+fi
 
-# Lancer le serveur Flask
+# 4. Lancer le serveur Flask via venv
+echo ""
+echo "=================================================="
 echo "🚀 Démarrage du Bot du Millionnaire..."
 echo "📱 L'application sera disponible à : http://localhost:5000"
-echo ""
-echo "Appuyez sur Ctrl+C pour arrêter le serveur"
+echo "=================================================="
 echo ""
 
-$PYTHON bot.py
+./venv/bin/python bot.py
