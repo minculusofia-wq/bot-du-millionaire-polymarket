@@ -85,10 +85,27 @@ class TrailingStopMonitor:
             if current_price < trailing_threshold:
                 logger.warning(f"🛡️ TRAILING STOP DÉCLENCHÉ pour #{pos_id} !")
                 logger.warning(f"   Prix: ${current_price:.4f} < Seuil: ${trailing_threshold:.4f} (High: ${highest_price:.4f}, SL: {sl_percent}%)")
-                
+
                 # Exécuter la vente via l'executor
-                self.executor.sell_position(
-                    position_id=pos_id,
-                    amount=None, # Tout vendre
-                    reason="TRAILING_STOP_HIT"
-                )
+                try:
+                    result = self.executor.sell_position(
+                        position_id=pos_id,
+                        amount=None  # Tout vendre
+                    )
+                    if result.get('success'):
+                        logger.info(f"✅ Position #{pos_id} vendue (Trailing Stop) - PnL: ${result.get('pnl', 0):.2f}")
+                    else:
+                        logger.error(f"❌ Échec vente position #{pos_id}: {result.get('error')}")
+                except Exception as e:
+                    logger.error(f"❌ Erreur vente Trailing Stop #{pos_id}: {e}")
+
+    def get_stats(self):
+        """Retourne les statistiques du moniteur"""
+        return {
+            'running': self.running,
+            'poll_interval': self.poll_interval
+        }
+
+
+# Instance globale (optionnelle, créée dans bot.py)
+trailing_monitor = None

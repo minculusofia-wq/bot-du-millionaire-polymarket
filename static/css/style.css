@@ -369,3 +369,58 @@ input:checked + .toggle-slider:before { transform: translateX(30px); }
 }
 .position-card .position-pnl.positive { color: #00E676; }
 .position-card .position-pnl.negative { color: #FF5252; }
+
+/* POSITION CARD EXTRAS */
+.position-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.position-header strong {
+    font-size: 14px;
+    color: #fff;
+}
+.position-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.position-details > div {
+    display: flex;
+    justify-content: space-between;
+}
+.position-details span:first-child {
+    color: #888;
+    font-size: 12px;
+}
+.position-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+.side-badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+.side-badge.buy {
+    background: rgba(0, 230, 118, 0.2);
+    color: #00E676;
+}
+.side-badge.sell {
+    background: rgba(255, 82, 82, 0.2);
+    color: #FF5252;
+}
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* COLOR UTILITIES */
+.positive { color: #00E676; }
+.negative { color: #FF5252; }
+.value { font-weight: bold; }

@@ -239,10 +239,22 @@ class DBManager:
                 opened_at TEXT NOT NULL,
                 closed_at TEXT,
                 last_updated TEXT NOT NULL,
+                highest_price REAL DEFAULT 0,
+                use_trailing INTEGER DEFAULT 0,
                 UNIQUE(token_id, source_wallet)
             )
         ''')
-        
+
+        # Migration: Ajouter colonnes manquantes si elles n'existent pas (pour bases existantes)
+        try:
+            c.execute('ALTER TABLE bot_positions ADD COLUMN highest_price REAL DEFAULT 0')
+        except:
+            pass  # Colonne existe déjà
+        try:
+            c.execute('ALTER TABLE bot_positions ADD COLUMN use_trailing INTEGER DEFAULT 0')
+        except:
+            pass  # Colonne existe déjà
+
         # Index pour performances
         c.execute('CREATE INDEX IF NOT EXISTS idx_source_wallet ON bot_positions(source_wallet)')
         c.execute('CREATE INDEX IF NOT EXISTS idx_status ON bot_positions(status)')

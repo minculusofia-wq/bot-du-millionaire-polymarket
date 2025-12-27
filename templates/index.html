@@ -41,39 +41,35 @@
                 <input type="number" id="modal-tp" value="" min="0" step="0.1" placeholder="Ex: 20">
                 <p style="color: #666; font-size: 11px; margin-top: 5px;">Profit cible (ex: 20 pour +20%)</p>
             </div>
-        </div>
 
-        <!-- ✨ TRAILING STOP -->
-        <div class="form-group" style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
-            <label class="toggle-switch">
-                <input type="checkbox" id="modal-use-trailing">
-                <span class="toggle-slider"></span>
-            </label>
-            <div>
-                <label for="modal-use-trailing" style="cursor: pointer; font-weight: bold;">🛡️ Activer Trailing
-                    Stop</label>
-                <p style="color: #666; font-size: 11px; margin-top: 2px;">Utilise le SL comme distance suiveuse (ex:
-                    -10% du plus haut)</p>
+            <!-- ✨ TRAILING STOP -->
+            <div class="form-group" style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="modal-use-trailing">
+                    <span class="toggle-slider"></span>
+                </label>
+                <div>
+                    <label for="modal-use-trailing" style="cursor: pointer; font-weight: bold;">🛡️ Activer Trailing Stop</label>
+                    <p style="color: #666; font-size: 11px; margin-top: 2px;">Utilise le SL comme distance suiveuse (ex: -10% du plus haut)</p>
+                </div>
+            </div>
+
+            <!-- ✨ KELLY CRITERION -->
+            <div class="form-group" style="margin-top: 20px; display: flex; align-items: center; gap: 10px;">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="modal-use-kelly">
+                    <span class="toggle-slider"></span>
+                </label>
+                <div>
+                    <label for="modal-use-kelly" style="cursor: pointer; font-weight: bold;">🧠 Activer Algo Kelly</label>
+                    <p style="color: #666; font-size: 11px; margin-top: 2px;">Ajuste automatiquement la mise selon la performance du trader</p>
+                </div>
+            </div>
+
+            <div style="margin-top: 25px;">
+                <button class="btn btn-primary" onclick="saveWalletConfig()" style="width: 100%;">Sauvegarder</button>
             </div>
         </div>
-
-        <!-- ✨ KELLY CRITERION -->
-        <div class="form-group" style="margin-top: 20px; display: flex; align-items: center; gap: 10px;">
-            <label class="toggle-switch">
-                <input type="checkbox" id="modal-use-kelly">
-                <span class="toggle-slider"></span>
-            </label>
-            <div>
-                <label for="modal-use-kelly" style="cursor: pointer; font-weight: bold;">🧠 Activer Algo Kelly</label>
-                <p style="color: #666; font-size: 11px; margin-top: 2px;">Ajuste automatiquement la mise selon la
-                    performance du trader</p>
-            </div>
-        </div>
-
-        <div style="margin-top: 25px;">
-            <button class="btn btn-primary" onclick="saveWalletConfig()" style="width: 100%;">Sauvegarder</button>
-        </div>
-    </div>
     </div>
 
     <!-- MODAL VENTE POSITION -->
