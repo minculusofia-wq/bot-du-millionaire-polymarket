@@ -301,21 +301,34 @@
         <!-- ============ PARAMÈTRES ============ -->
         <div id="tab-settings" class="tab-content">
             <div class="two-columns">
-                <!-- WALLET POLYMARKET -->
+                <!-- WALLET & API POLYMARKET -->
                 <div class="card">
-                    <h2>👛 Wallet Polymarket (Polygon)</h2>
+                    <h2>🔑 Identifiants Polymarket</h2>
                     <div class="form-group">
-                        <label>Adresse du Wallet</label>
+                        <label>Adresse du Wallet (Proxy/Metamask)</label>
                         <input type="text" id="pm-wallet-address" placeholder="0x...">
                     </div>
                     <div class="form-group">
-                        <label>Clé Privée</label>
+                        <label>Clé Privée du Wallet</label>
                         <input type="password" id="pm-wallet-key"
-                            placeholder="Clé privée (stockée en mémoire uniquement)">
+                            placeholder="Clé privée (sera chiffrée)">
                     </div>
-                    <button class="btn btn-primary" onclick="savePolymarketWallet()">Sauvegarder</button>
+                    <hr style="border-color: rgba(255,255,255,0.05); margin: 20px 0;">
+                    <div class="form-group">
+                        <label>API Key Polymarket</label>
+                        <input type="text" id="pm-api-key" placeholder="API Key">
+                    </div>
+                    <div class="form-group">
+                        <label>API Secret</label>
+                        <input type="password" id="pm-api-secret" placeholder="API Secret">
+                    </div>
+                    <div class="form-group">
+                        <label>API Passphrase</label>
+                        <input type="password" id="pm-api-passphrase" placeholder="Passphrase">
+                    </div>
+                    <button class="btn btn-primary" onclick="savePolymarketCredentials()" style="width: 100%;">Sauvegarder les Identifiants</button>
                     <p style="color: #888; font-size: 11px; margin-top: 10px;">
-                        ⚠️ La clé privée n'est jamais sauvegardée sur disque
+                        ⚠️ Vos clés sont chiffrées au repos via SecretManager.
                     </p>
                 </div>
 

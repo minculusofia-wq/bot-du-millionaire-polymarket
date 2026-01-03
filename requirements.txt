@@ -7,3 +7,4 @@ flask-socketio==5.3.6
 simple-websocket==1.0.0
 eventlet
 websocket-client
+cryptography

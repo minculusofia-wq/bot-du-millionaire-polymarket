@@ -34,28 +34,9 @@ class BotBackend:
         """Migre les anciennes configurations vers la nouvelle structure"""
         needs_save = False
 
-        # Supprimer les anciennes clés si présentes
-        old_keys = [
-            'total_capital', 'slippage', 'tp1_percent', 'tp1_profit',
-            'tp2_percent', 'tp2_profit', 'tp3_percent', 'tp3_profit',
-            'sl_percent', 'sl_loss', 'active_traders_limit', 'currency',
-            'wallet_private_key', 'rpc_url', 'traders',
-            'solana_wallet', 'arbitrage'  # Removing these as they are no longer used
-        ]
-        for key in old_keys:
-            if key in self.data:
-                del self.data[key]
-                needs_save = True
-                print(f"🔄 Migration: Suppression de '{key}'")
-
         # Ajouter is_running si manquant
         if 'is_running' not in self.data:
             self.data['is_running'] = False
-            needs_save = True
-
-        # Ajouter params_saved si manquant
-        if 'params_saved' not in self.data:
-            self.data['params_saved'] = False
             needs_save = True
 
         # Ajouter polymarket_wallet si manquant
@@ -65,17 +46,15 @@ class BotBackend:
                 "private_key": ""
             }
             needs_save = True
-            print("🔄 Migration: Ajout polymarket_wallet")
 
         # Ajouter polymarket config si manquant
         if 'polymarket' not in self.data:
             self.data['polymarket'] = {
                 "enabled": False,
-                # "dry_run": False, # REMOVED: No simulation
                 "tracked_wallets": [],
-                "polling_interval": 30,
-                "max_position_usd": 0,
-                "min_position_usd": 0,
+                "polling_interval": 5,
+                "max_position_usd": 100,
+                "min_position_usd": 5,
                 "copy_percentage": 100,
                 "signals_detected": 0,
                 "trades_copied": 0,
@@ -83,13 +62,6 @@ class BotBackend:
                 "win_rate": 0
             }
             needs_save = True
-            print("🔄 Migration: Ajout config polymarket")
-
-        # Enforce dry_run removal from existing config if present
-        if 'polymarket' in self.data and 'dry_run' in self.data['polymarket']:
-            del self.data['polymarket']['dry_run']
-            needs_save = True
-            print("🔄 Migration: Suppression de dry_run (Mode réel forcé)")
 
         if needs_save:
             self.save_config_sync()
@@ -110,7 +82,7 @@ class BotBackend:
                 "enabled": False,
                 # "dry_run": False, # REMOVE simulation
                 "tracked_wallets": [],
-                "polling_interval": 30,
+                "polling_interval": 5,
                 "max_position_usd": 0,
                 "min_position_usd": 0,
                 "copy_percentage": 100,

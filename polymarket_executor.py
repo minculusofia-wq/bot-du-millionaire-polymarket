@@ -32,7 +32,7 @@ class PolymarketExecutor:
         """Configure le wallet sur le client sous-jacent"""
         polymarket_client.set_wallet(private_key)
 
-    def calculate_position_size(self, signal: Dict, bot_capital: float) -> float:
+    def calculate_position_size(self, signal: Dict, bot_capital: float, price: float = None) -> float:
         """
         Calcule la taille de position.
         """
@@ -47,11 +47,21 @@ class PolymarketExecutor:
             if wallet_capital <= 0:
                 wallet_capital = self.env_max_position # Fallback
                 
+            # Utiliser le prix fourni ou essayer d'en obtenir un
+            if not price:
+                asset_id = signal.get('asset_id', '')
+                if asset_id:
+                    price = self.get_market_price(asset_id, 'BUY')
+            
+            # Calculer les cotes réelles (odds)
+            # odds = 1 / price (ex: $0.50 => odds 2.0)
+            market_odds = (1.0 / price) if (price and price > 0) else 2.0
+            
             # Calculer taille via Strategy Engine
             kelly_size = strategy_engine.calculate_kelly_size(
                 trader_address=trader_address,
                 base_capital=wallet_capital,
-                market_odds=2.0 # Hypothèse standard (b=1) pour Polymarket
+                market_odds=market_odds
             )
             return kelly_size
 
@@ -141,8 +151,16 @@ class PolymarketExecutor:
             validator = TradeValidator(self.backend.data.get('polymarket', {}))
             current_positions = db_manager.get_bot_positions()
             
+            # Récupérer le prix actuel
+            side = 'BUY' if signal_type == 'BUY' else 'SELL'
+            price = self.get_market_price(asset_id, side)
+            
+            if not price or price <= 0:
+                logger.error(f"❌ Prix non disponible pour {asset_id}. Annulation du trade.")
+                return {'status': 'error', 'message': 'Prix non disponible'}
+
             # Calculer la taille de position pour la validation
-            position_size = self.calculate_position_size(signal, bot_capital)
+            position_size = self.calculate_position_size(signal, bot_capital, price=price)
             
             # Ajouter value_usd au signal pour la validation
             signal_with_value = {**signal, 'value_usd': position_size}

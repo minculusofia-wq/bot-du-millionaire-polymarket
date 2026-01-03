@@ -65,6 +65,7 @@ load_env_file()
 from bot_logic import BotBackend
 from db_manager import db_manager
 from audit_logger import audit_logger
+from secret_manager import secret_manager
 
 # 🔧 Optimisations
 from logging_config import setup_logging, get_logger
@@ -100,7 +101,8 @@ try:
     print("✅ Tracker connecté à l'Exécuteur")
     
     # 🚀 Démarrer le monitoring en arrière-plan
-    polymarket_tracker.start_monitoring(interval=30)
+    monitoring_interval = backend.data.get('polymarket', {}).get('polling_interval', 5)
+    polymarket_tracker.start_monitoring(interval=monitoring_interval)
     print("✅ Monitoring Polymarket démarré")
     
     # 🛡️ Démarrer le Trailing Stop Monitor
@@ -168,7 +170,13 @@ def api_status():
         'is_running': backend.is_running,
         'polymarket': backend.data.get('polymarket', {}),
         'polymarket_wallet': {
-            'address': backend.data.get('polymarket_wallet', {}).get('address', '')
+            'address': backend.data.get('polymarket_wallet', {}).get('address', ''),
+            'has_key': bool(os.getenv('POLYGON_PRIVATE_KEY'))
+        },
+        'polymarket_api': {
+            'key': os.getenv('POLYMARKET_API_KEY', ''),
+            'has_secret': bool(os.getenv('POLYMARKET_SECRET')),
+            'has_passphrase': bool(os.getenv('POLYMARKET_PASSPHRASE'))
         },
         'ws_clients': ws_count
     })
@@ -464,68 +472,87 @@ def api_wallets_toggle():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/wallet/polymarket', methods=['POST'])
-def api_wallet_polymarket():
-    """Configurer le wallet Polymarket"""
+@app.route('/api/polymarket/credentials', methods=['POST'])
+def api_polymarket_credentials():
+    """Sauvegarde les identifiants Polymarket (Wallet + API) de manière chiffrée"""
     try:
         data = request.get_json()
         address = data.get('address', '').strip()
         private_key = data.get('private_key', '').strip()
+        api_key = data.get('api_key', '').strip()
+        api_secret = data.get('api_secret', '').strip()
+        api_passphrase = data.get('api_passphrase', '').strip()
 
-        if not address:
-            return jsonify({'success': False, 'error': 'Adresse requise'}), 400
+        # 1. Mise à jour de l'adresse dans config.json
+        if address:
+            backend.data['polymarket_wallet']['address'] = address
+            backend.save_config_sync()
 
-        backend.data['polymarket_wallet'] = {
-            'address': address,
-            'private_key': ''  # Ne pas sauvegarder la clé privée dans le config.json (JSON public/partagé)
-        }
-        backend.save_config_sync()
+        # 2. Mise à jour du .env avec chiffrement
+        env_path = os.path.join(os.getcwd(), '.env')
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                lines = f.readlines()
 
-        # 1. Stocker la clé en mémoire
-        if private_key and polymarket_executor and hasattr(polymarket_executor, 'set_wallet'):
-            polymarket_executor.set_wallet(private_key)
-            
-        # 2. Persister dans .env (Demande utilisateur pour éviter re-saisie)
+        # Dictionnaire des clés à mettre à jour
+        updates = {}
+        if private_key: updates['POLYGON_PRIVATE_KEY'] = secret_manager.encrypt(private_key)
+        if api_key: updates['POLYMARKET_API_KEY'] = api_key
+        if api_secret: updates['POLYMARKET_SECRET'] = secret_manager.encrypt(api_secret)
+        if api_passphrase: updates['POLYMARKET_PASSPHRASE'] = secret_manager.encrypt(api_passphrase)
+
+        new_lines = []
+        keys_found = set()
+        
+        for line in lines:
+            found = False
+            for k in updates:
+                if line.startswith(f'{k}='):
+                    new_lines.append(f'{k}="{updates[k]}"\n')
+                    keys_found.add(k)
+                    found = True
+                    break
+            if not found:
+                new_lines.append(line)
+
+        # Ajouter les clés non trouvées
+        for k, v in updates.items():
+            if k not in keys_found:
+                new_lines.append(f'{k}="{v}"\n')
+
+        with open(env_path, 'w') as f:
+            f.writelines(new_lines)
+
+        # 3. Informer les composants (Rechargement à chaud)
         if private_key:
-            try:
-                env_path = '.env'
-                # Lire le contenu actuel
-                if os.path.exists(env_path):
-                    with open(env_path, 'r') as f:
-                        lines = f.readlines()
-                else:
-                    lines = []
+            if polymarket_executor and hasattr(polymarket_executor, 'set_wallet'):
+                polymarket_executor.set_wallet(private_key)
+            if polymarket_clob:
+                polymarket_clob.set_wallet(private_key)
 
-                # Mettre à jour ou ajouter POLYGON_PRIVATE_KEY
-                key_found = False
-                new_lines = []
-                for line in lines:
-                    if line.startswith('POLYGON_PRIVATE_KEY='):
-                        new_lines.append(f'POLYGON_PRIVATE_KEY="{private_key}"\n')
-                        key_found = True
-                    else:
-                        new_lines.append(line)
-                
-                if not key_found:
-                    new_lines.append(f'\nPOLYGON_PRIVATE_KEY="{private_key}"\n')
+        if api_key or api_secret or api_passphrase:
+            current_key = api_key or os.getenv('POLYMARKET_API_KEY', '')
+            # Pour le secret et passphrase, on récupère l'actuel déchiffré si non fourni
+            current_secret = api_secret or secret_manager.decrypt(os.getenv('POLYMARKET_SECRET', ''))
+            current_pass = api_passphrase or secret_manager.decrypt(os.getenv('POLYMARKET_PASSPHRASE', ''))
+            
+            if polymarket_clob and hasattr(polymarket_clob, 'set_api_credentials'):
+                polymarket_clob.set_api_credentials(current_key, current_secret, current_pass)
 
-                # Écrire le nouveau contenu
-                with open(env_path, 'w') as f:
-                    f.writelines(new_lines)
-                
-                print("🔒 Clé privée sauvegardée dans .env")
-            except Exception as e:
-                print(f"⚠️ Erreur sauvegarde .env: {e}")
+        # Recharger les variables d'environnement pour le processus actuel
+        for k, v in updates.items():
+            os.environ[k] = v
 
-        # Configurer aussi le CLOB si disponible
-        if private_key and polymarket_clob:
-            polymarket_clob.private_key = private_key
-
-        print(f"✅ Wallet Polymarket configuré: {address[:10]}...")
-        return jsonify({'success': True, 'message': 'Wallet Polymarket sauvegardé'})
+        return jsonify({'success': True, 'message': 'Identifiants sauvegardés avec succès'})
     except Exception as e:
-        print(f"❌ Erreur sauvegarde wallet Polymarket: {e}")
+        print(f"❌ Erreur sauvegarde identifiants: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/wallet/polymarket', methods=['POST'])
+def api_wallet_polymarket():
+    """Gardé pour compatibilité"""
+    return api_polymarket_credentials()
 
 # ============================================================================
 # HISTORY & EXPORT

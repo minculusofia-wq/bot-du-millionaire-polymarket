@@ -110,21 +110,21 @@ function addWallet() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, name })
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('new-wallet-address').value = '';
-            document.getElementById('new-wallet-name').value = '';
-            loadWallets();
-            alert('Wallet ajouté avec succès!');
-        } else {
-            alert('Erreur: ' + (data.error || 'Impossible d\'ajouter le wallet'));
-        }
-    })
-    .catch(e => {
-        console.error('Erreur addWallet:', e);
-        alert('Erreur réseau');
-    });
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('new-wallet-address').value = '';
+                document.getElementById('new-wallet-name').value = '';
+                loadWallets();
+                alert('Wallet ajouté avec succès!');
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible d\'ajouter le wallet'));
+            }
+        })
+        .catch(e => {
+            console.error('Erreur addWallet:', e);
+            alert('Erreur réseau');
+        });
 }
 
 function removeWallet(address) {
@@ -135,15 +135,15 @@ function removeWallet(address) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address })
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            loadWallets();
-        } else {
-            alert('Erreur: ' + (data.error || 'Impossible de supprimer'));
-        }
-    })
-    .catch(e => console.error('Erreur removeWallet:', e));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadWallets();
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible de supprimer'));
+            }
+        })
+        .catch(e => console.error('Erreur removeWallet:', e));
 }
 
 function toggleWalletActive(address, currentlyActive) {
@@ -154,13 +154,13 @@ function toggleWalletActive(address, currentlyActive) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, active: newState })
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            loadWallets();
-        }
-    })
-    .catch(e => console.error('Erreur toggleWalletActive:', e));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadWallets();
+            }
+        })
+        .catch(e => console.error('Erreur toggleWalletActive:', e));
 }
 
 function saveWalletConfig() {
@@ -188,41 +188,41 @@ function saveWalletConfig() {
             use_trailing: useTrailing
         })
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            closeWalletConfigModal();
-            loadWallets();
-            alert('Configuration sauvegardée!');
-        } else {
-            alert('Erreur: ' + (data.error || 'Impossible de sauvegarder'));
-        }
-    })
-    .catch(e => {
-        console.error('Erreur saveWalletConfig:', e);
-        alert('Erreur réseau');
-    });
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                closeWalletConfigModal();
+                loadWallets();
+                alert('Configuration sauvegardée!');
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible de sauvegarder'));
+            }
+        })
+        .catch(e => {
+            console.error('Erreur saveWalletConfig:', e);
+            alert('Erreur réseau');
+        });
 }
 
 // ============ POSITIONS ============
 function loadPositions() {
     fetch('/api/positions')
-    .then(r => r.json())
-    .then(data => {
-        const container = document.getElementById('active-positions');
-        if (!data.success || !data.positions || data.positions.length === 0) {
-            container.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">Aucune position active</p>';
-            return;
-        }
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('active-positions');
+            if (!data.success || !data.positions || data.positions.length === 0) {
+                container.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">Aucune position active</p>';
+                return;
+            }
 
-        container.innerHTML = data.positions.map(p => {
-            const pnl = p.pnl || p.unrealized_pnl || 0;
-            const pnlClass = pnl >= 0 ? 'positive' : 'negative';
-            const pnlSign = pnl >= 0 ? '+' : '';
-            const market = p.market || p.market_slug || 'Marché inconnu';
-            const amount = p.amount || p.value_usd || 0;
+            container.innerHTML = data.positions.map(p => {
+                const pnl = p.pnl || p.unrealized_pnl || 0;
+                const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+                const pnlSign = pnl >= 0 ? '+' : '';
+                const market = p.market || p.market_slug || 'Marché inconnu';
+                const amount = p.amount || p.value_usd || 0;
 
-            return `
+                return `
             <div class="position-card">
                 <div class="position-header">
                     <strong>${market}</strong>
@@ -251,11 +251,11 @@ function loadPositions() {
                 </div>
             </div>
             `;
-        }).join('');
-    })
-    .catch(e => {
-        console.error('Erreur loadPositions:', e);
-    });
+            }).join('');
+        })
+        .catch(e => {
+            console.error('Erreur loadPositions:', e);
+        });
 }
 
 // ============ SELL MODAL ============
@@ -266,19 +266,19 @@ function openSellModal(positionId) {
 
     // Fetch position details
     fetch('/api/positions')
-    .then(r => r.json())
-    .then(data => {
-        const position = data.positions.find(p => (p.id || p.position_id) == positionId);
-        if (position) {
-            document.getElementById('sell-market-name').textContent = position.market || position.market_slug || 'Inconnu';
-            document.getElementById('sell-position-side').textContent = position.side || 'BUY';
-            document.getElementById('sell-position-amount').textContent = '$' + (position.amount || position.value_usd || 0).toFixed(2);
-            const pnl = position.pnl || position.unrealized_pnl || 0;
-            const pnlEl = document.getElementById('sell-position-pnl');
-            pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
-            pnlEl.className = 'value ' + (pnl >= 0 ? 'positive' : 'negative');
-        }
-    });
+        .then(r => r.json())
+        .then(data => {
+            const position = data.positions.find(p => (p.id || p.position_id) == positionId);
+            if (position) {
+                document.getElementById('sell-market-name').textContent = position.market || position.market_slug || 'Inconnu';
+                document.getElementById('sell-position-side').textContent = position.side || 'BUY';
+                document.getElementById('sell-position-amount').textContent = '$' + (position.amount || position.value_usd || 0).toFixed(2);
+                const pnl = position.pnl || position.unrealized_pnl || 0;
+                const pnlEl = document.getElementById('sell-position-pnl');
+                pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+                pnlEl.className = 'value ' + (pnl >= 0 ? 'positive' : 'negative');
+            }
+        });
 
     // Reset percent selection
     selectSellPercent(100);
@@ -323,20 +323,20 @@ function executeSell() {
             percent: percent
         })
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            closeSellModal();
-            loadPositions();
-            alert('Vente exécutée avec succès!');
-        } else {
-            alert('Erreur: ' + (data.error || 'Impossible de vendre'));
-        }
-    })
-    .catch(e => {
-        console.error('Erreur executeSell:', e);
-        alert('Erreur réseau');
-    });
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                closeSellModal();
+                loadPositions();
+                alert('Vente exécutée avec succès!');
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible de vendre'));
+            }
+        })
+        .catch(e => {
+            console.error('Erreur executeSell:', e);
+            alert('Erreur réseau');
+        });
 }
 
 function loadWallets() {
@@ -407,15 +407,29 @@ function loadWallets() {
 }
 
 // ============ SAVE CONFIGS ============
-function savePolymarketWallet() {
+function savePolymarketCredentials() {
     const address = document.getElementById('pm-wallet-address').value;
     const key = document.getElementById('pm-wallet-key').value;
-    fetch('/api/wallet/polymarket', {
+    const apiKey = document.getElementById('pm-api-key').value;
+    const apiSecret = document.getElementById('pm-api-secret').value;
+    const apiPassphrase = document.getElementById('pm-api-passphrase').value;
+
+    fetch('/api/polymarket/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, private_key: key })
+        body: JSON.stringify({
+            address,
+            private_key: key,
+            api_key: apiKey,
+            api_secret: apiSecret,
+            api_passphrase: apiPassphrase
+        })
     }).then(r => r.json()).then(data => {
-        alert(data.success ? 'Wallet Polymarket sauvegardé' : 'Erreur');
+        if (data.success) {
+            alert('Identifiants Polymarket sauvegardés et chiffrés');
+        } else {
+            alert('Erreur: ' + (data.error || 'Inconnue'));
+        }
     });
 }
 
@@ -486,9 +500,13 @@ function updateUI() {
             document.getElementById('pm-copy-percent').value = pm.copy_percentage || 100;
 
 
-            // Wallet addresses
+            // Wallet & API addresses
             if (data.polymarket_wallet) {
                 document.getElementById('pm-wallet-address').value = data.polymarket_wallet.address || '';
+                // On ne remplit pas les mots de passe/clés pour la sécurité, 
+                // mais si on veut montrer qu'ils existent:
+                if (data.polymarket_wallet.has_key) document.getElementById('pm-wallet-key').placeholder = "••••••••••••••••";
+
                 // Afficher adresse sur dashboard
                 const pmAddr = data.polymarket_wallet.address;
                 if (pmAddr) {
@@ -496,6 +514,15 @@ function updateUI() {
                 } else {
                     document.getElementById('pm-wallet-addr').textContent = 'Non configuré';
                 }
+            }
+
+            // API Credentials placeholders
+            if (data.polymarket_api) {
+                if (data.polymarket_api.key) {
+                    document.getElementById('pm-api-key').value = data.polymarket_api.key;
+                }
+                if (data.polymarket_api.has_secret) document.getElementById('pm-api-secret').placeholder = "••••••••••••••••";
+                if (data.polymarket_api.has_passphrase) document.getElementById('pm-api-passphrase').placeholder = "••••••••••••••••";
             }
 
         } catch (e) {
@@ -629,8 +656,8 @@ document.addEventListener('DOMContentLoaded', function () {
         showTab('dashboard');
     }
 
-    // Start polling
-    setInterval(updateUI, 5000);
+    // Start polling (Reduced frequency as we have SocketIO)
+    setInterval(updateUI, 10000);
     updateUI();
 
     // Charger le graphique

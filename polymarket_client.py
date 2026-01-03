@@ -27,6 +27,8 @@ except ImportError:
             return func
         return decorator
 
+from secret_manager import secret_manager
+
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("PolymarketClient")
@@ -49,9 +51,13 @@ class PolymarketClient:
         
         # Credentials
         self.api_key = os.getenv('POLYMARKET_API_KEY', '')
-        self.api_secret = os.getenv('POLYMARKET_SECRET', '')
-        self.api_passphrase = os.getenv('POLYMARKET_PASSPHRASE', '')
-        self.private_key = os.getenv('POLYGON_PRIVATE_KEY', '')
+        # Déchiffrer les secrets
+        self.api_secret = secret_manager.decrypt(os.getenv('POLYMARKET_SECRET', ''))
+        self.api_passphrase = secret_manager.decrypt(os.getenv('POLYMARKET_PASSPHRASE', ''))
+        
+        # Déchiffrer la clé privée si elle est chiffrée
+        encrypted_key = os.getenv('POLYGON_PRIVATE_KEY', '')
+        self.private_key = secret_manager.decrypt(encrypted_key)
 
         # Client officiel (py-clob-client)
         self.client = None
@@ -85,15 +91,18 @@ class PolymarketClient:
         try:
             from py_clob_client.client import ClobClient
             from py_clob_client.constants import POLYGON
+            from py_clob_client.clob_types import ApiCreds
 
             if all([self.api_key, self.api_secret, self.api_passphrase, self.private_key]):
                 self.client = ClobClient(
                     host=self.CLOB_HOST,
-                    key=self.api_key,
-                    secret=self.api_secret,
-                    passphrase=self.api_passphrase,
+                    key=self.private_key,
                     chain_id=POLYGON,
-                    private_key=self.private_key
+                    creds=ApiCreds(
+                        api_key=self.api_key,
+                        api_secret=self.api_secret,
+                        api_passphrase=self.api_passphrase
+                    )
                 )
             else:
                 logger.debug("Credentials incomplets pour py-clob-client")
@@ -110,7 +119,8 @@ class PolymarketClient:
         if not private_key:
             return
 
-        self.private_key = private_key
+        # On s'assure que si la clé passée est chiffrée, on la déchiffre pour l'usage interne
+        self.private_key = secret_manager.decrypt(private_key)
         # Mettre à jour le statut
         self.authenticated = bool(self.api_key and self.api_secret and self.private_key)
         
@@ -118,6 +128,15 @@ class PolymarketClient:
         self._init_clob_client()
         
         logger.info("🔐 Clé privée mise à jour en mémoire (Mode Authentifié actif)")
+
+    def set_api_credentials(self, api_key: str, api_secret: str, api_passphrase: str):
+        """Met à jour les identifiants API Polymarket"""
+        self.api_key = api_key
+        self.api_secret = api_secret
+        self.api_passphrase = api_passphrase
+        self.authenticated = bool(self.api_key and self.api_secret and self.private_key)
+        self._init_clob_client()
+        logger.info("🔑 Identifiants API mis à jour en mémoire")
 
     def _sign_request(self, method: str, path: str, body: str = '') -> Dict[str, str]:
         """Génère les headers d'authentification pour l'API REST (Fallback)."""
