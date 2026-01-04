@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bot du Millionnaire - Polymarket Copy Trading</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.2">
 </head>
 
 <body>
@@ -42,28 +42,51 @@
                 <p style="color: #666; font-size: 11px; margin-top: 5px;">Profit cible (ex: 20 pour +20%)</p>
             </div>
 
-            <!-- ✨ TRAILING STOP -->
-            <div class="form-group" style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
-                <label class="toggle-switch">
-                    <input type="checkbox" id="modal-use-trailing">
-                    <span class="toggle-slider"></span>
-                </label>
-                <div>
-                    <label for="modal-use-trailing" style="cursor: pointer; font-weight: bold;">🛡️ Activer Trailing Stop</label>
-                    <p style="color: #666; font-size: 11px; margin-top: 2px;">Utilise le SL comme distance suiveuse (ex: -10% du plus haut)</p>
+            <!-- ✨ TOGGLES GRID -->
+            <div class="settings-grid">
+                <!-- ✨ TRAILING STOP -->
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="modal-use-trailing">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div>
+                        <label for="modal-use-trailing" style="cursor: pointer; font-weight: bold; font-size: 12px;">🛡️
+                            Trailing Stop</label>
+                    </div>
+                </div>
+
+                <!-- ✨ KELLY CRITERION -->
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="modal-use-kelly">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div>
+                        <label for="modal-use-kelly" style="cursor: pointer; font-weight: bold; font-size: 12px;">🧠
+                            Kelly Algo</label>
+                    </div>
+                </div>
+
+                <!-- ✨ MODE RISK-FREE -->
+                <div class="form-group"
+                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 0; grid-column: span 2;">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="modal-use-risk-free">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div>
+                        <label for="modal-use-risk-free" style="cursor: pointer; font-weight: bold; font-size: 12px;">💰
+                            Risk-Free (Capital Recovery)</label>
+                    </div>
                 </div>
             </div>
 
-            <!-- ✨ KELLY CRITERION -->
-            <div class="form-group" style="margin-top: 20px; display: flex; align-items: center; gap: 10px;">
-                <label class="toggle-switch">
-                    <input type="checkbox" id="modal-use-kelly">
-                    <span class="toggle-slider"></span>
-                </label>
-                <div>
-                    <label for="modal-use-kelly" style="cursor: pointer; font-weight: bold;">🧠 Activer Algo Kelly</label>
-                    <p style="color: #666; font-size: 11px; margin-top: 2px;">Ajuste automatiquement la mise selon la performance du trader</p>
-                </div>
+            <!-- ✨ PALIERS DE SORTIE -->
+            <div class="form-group">
+                <label>🎯 Paliers de Take Profit (Optionnel)</label>
+                <input type="text" id="modal-tp-tiers" placeholder="ex: 10:20, 20:30, 50:50">
+                <p style="color: #666; font-size: 10px; margin-top: 3px;">Format : profit%:sell%</p>
             </div>
 
             <div style="margin-top: 25px;">
@@ -150,7 +173,8 @@
                 <div class="card">
                     <h2>👛 Wallet Polymarket (Polygon)</h2>
                     <div id="pm-wallet-info">
-                        <p style="color: #888; font-size: 12px; margin-bottom: 10px;" id="pm-wallet-addr">Non configuré
+                        <p style="color: #888; font-size: 12px; margin-bottom: 10px;" id="pm-wallet-addr">Non
+                            configuré
                         </p>
                         <div class="flex flex-between flex-center">
                             <span>Balance USDC</span>
@@ -310,8 +334,7 @@
                     </div>
                     <div class="form-group">
                         <label>Clé Privée du Wallet</label>
-                        <input type="password" id="pm-wallet-key"
-                            placeholder="Clé privée (sera chiffrée)">
+                        <input type="password" id="pm-wallet-key" placeholder="Clé privée (sera chiffrée)">
                     </div>
                     <hr style="border-color: rgba(255,255,255,0.05); margin: 20px 0;">
                     <div class="form-group">
@@ -326,7 +349,12 @@
                         <label>API Passphrase</label>
                         <input type="password" id="pm-api-passphrase" placeholder="Passphrase">
                     </div>
-                    <button class="btn btn-primary" onclick="savePolymarketCredentials()" style="width: 100%;">Sauvegarder les Identifiants</button>
+                    <div class="form-group">
+                        <label>Polygonscan API Key (Optionnel)</label>
+                        <input type="text" id="polygonscan-api-key" placeholder="Pour l'historique complet">
+                    </div>
+                    <button class="btn btn-primary" onclick="savePolymarketCredentials()"
+                        style="width: 100%;">Sauvegarder les Identifiants</button>
                     <p style="color: #888; font-size: 11px; margin-top: 10px;">
                         ⚠️ Vos clés sont chiffrées au repos via SecretManager.
                     </p>
@@ -375,7 +403,7 @@
     <!-- Socket.IO & Chart.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=2.2"></script>
 </body>
 
 </html>

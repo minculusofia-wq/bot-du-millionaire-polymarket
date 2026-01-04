@@ -64,6 +64,11 @@ class PolymarketTracker:
         else:
             logger.info("   ⚠️ Polygonscan API non configurée (historique limité)")
 
+    def set_polygonscan_key(self, key: str):
+        """Met à jour la clé API Polygonscan"""
+        self.polygonscan_api_key = key.strip()
+        logger.info(f"🔑 Clé Polygonscan mise à jour ({'Configurée' if self.polygonscan_api_key else 'Effacée'})")
+
     def add_wallet(self, address: str, name: str = "Wallet", capital: float = 0, percent: float = 0):
         """Ajoute un wallet à la liste de surveillance avec sa config"""
         addr = address.lower()

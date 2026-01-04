@@ -81,6 +81,14 @@ function openWalletConfigModal(address) {
     document.getElementById('modal-tp').value = (w.tp_percent === null || w.tp_percent === undefined) ? '' : w.tp_percent;
     document.getElementById('modal-use-kelly').checked = w.use_kelly || false;
     document.getElementById('modal-use-trailing').checked = w.use_trailing || false;
+    document.getElementById('modal-use-risk-free').checked = w.use_risk_free || false;
+
+    // Formatter les paliers (JSON -> string human-readable)
+    let tiersText = '';
+    if (w.tp_tiers && Array.isArray(w.tp_tiers)) {
+        tiersText = w.tp_tiers.map(t => `${t.profit}:${t.sell_pct}`).join(', ');
+    }
+    document.getElementById('modal-tp-tiers').value = tiersText;
 
     // 3. Affichage
     document.getElementById('wallet-config-modal').classList.add('active');
@@ -171,9 +179,26 @@ function saveWalletConfig() {
     const tpValue = document.getElementById('modal-tp').value;
     const useKelly = document.getElementById('modal-use-kelly').checked;
     const useTrailing = document.getElementById('modal-use-trailing').checked;
+    const useRiskFree = document.getElementById('modal-use-risk-free').checked;
+    const tiersRaw = document.getElementById('modal-tp-tiers').value;
 
     const sl = slValue !== '' ? parseFloat(slValue) : null;
     const tp = tpValue !== '' ? parseFloat(tpValue) : null;
+
+    // Parser les paliers
+    let tpTiers = [];
+    if (tiersRaw.trim()) {
+        tiersRaw.split(',').forEach(item => {
+            const parts = item.split(':');
+            if (parts.length === 2) {
+                const profit = parseFloat(parts[0].trim());
+                const sell_pct = parseFloat(parts[1].trim());
+                if (!isNaN(profit) && !isNaN(sell_pct)) {
+                    tpTiers.push({ profit, sell_pct, executed: false });
+                }
+            }
+        });
+    }
 
     fetch('/api/wallets/config', {
         method: 'POST',
@@ -185,7 +210,9 @@ function saveWalletConfig() {
             sl_percent: sl,
             tp_percent: tp,
             use_kelly: useKelly,
-            use_trailing: useTrailing
+            use_trailing: useTrailing,
+            use_risk_free: useRiskFree,
+            tp_tiers: tpTiers
         })
     })
         .then(r => r.json())
@@ -222,10 +249,20 @@ function loadPositions() {
                 const market = p.market || p.market_slug || 'Marché inconnu';
                 const amount = p.amount || p.value_usd || 0;
 
+                const statusBadges = [];
+                if (p.capital_recovered) {
+                    statusBadges.push('<span class="status-badge" style="background: #2196F3; color: white;">💰 CAPITAL RÉCUPÉRÉ</span>');
+                } else if (p.use_risk_free || p.exit_tiers) {
+                    statusBadges.push('<span class="status-badge" style="background: #9C27B0; color: white;">🛡️ RISK-FREE</span>');
+                }
+
                 return `
             <div class="position-card">
                 <div class="position-header">
-                    <strong>${market}</strong>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <strong>${market}</strong>
+                        <div style="display: flex; gap: 5px;">${statusBadges.join('')}</div>
+                    </div>
                     <span class="side-badge ${(p.side || 'BUY').toLowerCase()}">${p.side || 'BUY'}</span>
                 </div>
                 <div class="position-details">
@@ -371,6 +408,8 @@ function loadWallets() {
             if (tp !== null && tp !== undefined) configParts.push(`TP: <span style="color: #00E676;">${tp}%</span>`);
             if (useKelly) configParts.push(`<span class="status-badge" style="background: #9C27B0; color: white;">🧠 Kelly</span>`);
             if (useTrailing) configParts.push(`<span class="status-badge" style="background: #FF9800; color: white;">🛡️ Trailing</span>`);
+            if (w.use_risk_free) configParts.push(`<span class="status-badge" style="background: #2196F3; color: white;">💰 Risk-Free</span>`);
+            if (w.tp_tiers && w.tp_tiers.length > 0) configParts.push(`<span class="status-badge" style="background: #E91E63; color: white;">🎯 Tiers</span>`);
 
             const configInfo = configParts.length > 0
                 ? `<div class="wallet-config-info">${configParts.join(' | ')}</div>`
@@ -413,6 +452,7 @@ function savePolymarketCredentials() {
     const apiKey = document.getElementById('pm-api-key').value;
     const apiSecret = document.getElementById('pm-api-secret').value;
     const apiPassphrase = document.getElementById('pm-api-passphrase').value;
+    const polygonscanKey = document.getElementById('polygonscan-api-key').value;
 
     fetch('/api/polymarket/credentials', {
         method: 'POST',
@@ -422,7 +462,8 @@ function savePolymarketCredentials() {
             private_key: key,
             api_key: apiKey,
             api_secret: apiSecret,
-            api_passphrase: apiPassphrase
+            api_passphrase: apiPassphrase,
+            polygonscan_api_key: polygonscanKey
         })
     }).then(r => r.json()).then(data => {
         if (data.success) {
@@ -523,6 +564,10 @@ function updateUI() {
                 }
                 if (data.polymarket_api.has_secret) document.getElementById('pm-api-secret').placeholder = "••••••••••••••••";
                 if (data.polymarket_api.has_passphrase) document.getElementById('pm-api-passphrase').placeholder = "••••••••••••••••";
+
+                if (data.polymarket_api.polygonscan_key) {
+                    document.getElementById('polygonscan-api-key').value = data.polymarket_api.polygonscan_key;
+                }
             }
 
         } catch (e) {

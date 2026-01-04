@@ -94,14 +94,30 @@ class PolymarketClient:
             from py_clob_client.clob_types import ApiCreds
 
             if all([self.api_key, self.api_secret, self.api_passphrase, self.private_key]):
+                # Nettoyage et Validation des credentials
+                clean_key = self.private_key.strip()
+                if clean_key.startswith('0x'):
+                    clean_key = clean_key[2:]
+                
+                # ✨ Validation stricte de la clé privée
+                if len(clean_key) != 64:
+                    logger.error(f"❌ Clé privée Polygon invalide: longueur {len(clean_key)} au lieu de 64.")
+                    return
+
+                try:
+                    int(clean_key, 16)
+                except ValueError:
+                    logger.error("❌ Clé privée Polygon invalide: contient des caractères non-hexadécimaux.")
+                    return
+                
                 self.client = ClobClient(
                     host=self.CLOB_HOST,
-                    key=self.private_key,
+                    key=clean_key,
                     chain_id=POLYGON,
                     creds=ApiCreds(
-                        api_key=self.api_key,
-                        api_secret=self.api_secret,
-                        api_passphrase=self.api_passphrase
+                        api_key=self.api_key.strip(),
+                        api_secret=self.api_secret.strip(),
+                        api_passphrase=self.api_passphrase.strip()
                     )
                 )
             else:
@@ -109,7 +125,10 @@ class PolymarketClient:
         except ImportError:
             logger.warning("py-clob-client non installé. Utilisation fallback REST.")
         except Exception as e:
-            logger.error(f"Erreur init py-clob-client: {e}")
+            if "Non-hexadecimal digit found" in str(e):
+                logger.error("❌ Erreur critique: La clé privée déchiffrée n'est pas au format hexadécimal.")
+            else:
+                logger.error(f"Erreur init py-clob-client: {e}")
             
     def set_wallet(self, private_key: str):
         """

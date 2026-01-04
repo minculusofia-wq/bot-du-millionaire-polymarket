@@ -231,10 +231,12 @@ class PolymarketExecutor:
                     'tx_hash': result.get('result', {}).get('transactionHash', '')
                 })
                 
-                # ✅ Récupérer la config SL/TP du trader
+                # ✅ Récupérer la config du trader
                 sl_percent = None
                 tp_percent = None
                 use_trailing = False
+                use_risk_free = False
+                tp_tiers = []
                 
                 if self.backend:
                     tracked_wallets = self.backend.data.get('polymarket', {}).get('tracked_wallets', [])
@@ -243,8 +245,10 @@ class PolymarketExecutor:
                         sl_percent = wallet_config.get('sl_percent')
                         tp_percent = wallet_config.get('tp_percent')
                         use_trailing = wallet_config.get('use_trailing', False)
+                        use_risk_free = wallet_config.get('use_risk_free', False)
+                        tp_tiers = wallet_config.get('tp_tiers', [])
                 
-                # ✅ Enregistrer la position avec source_wallet et SL/TP (Version 2.0)
+                # ✅ Enregistrer la position avec toutes les stratégies de sortie (v2.2)
                 position_id = db_manager.add_position({
                     'token_id': asset_id,
                     'source_wallet': source_wallet,
@@ -252,15 +256,16 @@ class PolymarketExecutor:
                     'outcome': outcome,
                     'side': side,
                     'shares': shares,
-                    'size': shares,
+                    'size': shares, 
                     'avg_price': price,
                     'entry_price': price,
                     'current_price': price,
                     'value_usd': position_size,
                     'sl_percent': sl_percent,
                     'tp_percent': tp_percent,
-                    'use_trailing': use_trailing, # ✨ Trailing Flag
-                    'unrealized_pnl': 0,
+                    'use_trailing': int(use_trailing),
+                    'exit_tiers': json.dumps(tp_tiers) if tp_tiers else None,
+                    'capital_recovered': 0,
                     'status': 'OPEN',
                     'opened_at': datetime.now().isoformat()
                 })
@@ -302,16 +307,17 @@ class PolymarketExecutor:
         result = self.execute_copy_trade(signal)
         return result
 
-    def sell_position(self, position_id, amount: float = None, market: str = None, side: str = None) -> Dict:
+    def sell_position(self, position_id, amount: float = None, market: str = None, side: str = None, slippage: float = 0) -> Dict:
         """
         Vend une position (totalement ou partiellement).
-        Version 2.1: Avec protection anti-double vente via locks
+        Version 2.2: Support du slippage pour les sorties d'urgence (SL/Trailing)
 
         Args:
             position_id: ID unique de la position (int) ou token_id (str)
             amount: Montant USD à vendre (None = tout vendre)
             market: Slug du marché (optionnel)
             side: Côté (optionnel)
+            slippage: % de réduction du prix pour garantir l'exécution (ex: 0.5)
         """
         try:
             import time
@@ -336,7 +342,7 @@ class PolymarketExecutor:
                 return {'success': False, 'error': 'Position verrouillée par un autre processus'}
 
             try:
-                return self._execute_sell(position_id, amount, market, side)
+                return self._execute_sell(position_id, amount, market, side, slippage)
             finally:
                 # 🔒 Toujours libérer le verrou
                 if resolved_id:
@@ -346,7 +352,7 @@ class PolymarketExecutor:
             logger.error(f"❌ Erreur sell_position: {e}")
             return {'success': False, 'error': str(e)}
 
-    def _execute_sell(self, position_id, amount: float = None, market: str = None, side: str = None) -> Dict:
+    def _execute_sell(self, position_id, amount: float = None, market: str = None, side: str = None, slippage: float = 0) -> Dict:
         """Exécution interne de la vente (appelée avec le lock acquis)."""
         try:
             import time
@@ -384,6 +390,12 @@ class PolymarketExecutor:
             
             if not price or price <= 0:
                 return {'success': False, 'error': 'Prix non disponible'}
+            
+            # 2. Appliquer Slippage (pour sorties agressives)
+            if slippage > 0:
+                original_price = price
+                price = price * (1 - (slippage / 100))
+                logger.info(f"⚡ Slippage appliqué: ${original_price:.4f} -> ${price:.4f} (-{slippage}%)")
             
             # 3. Exécuter
             result = polymarket_client.place_order(

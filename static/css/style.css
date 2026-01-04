@@ -238,8 +238,39 @@ input:checked + .toggle-slider:before { transform: translateX(30px); }
     border-radius: 16px;
     padding: 30px;
     width: 90%;
-    max-width: 450px;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
     position: relative;
+    scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar for Modal */
+.modal::-webkit-scrollbar {
+    width: 6px;
+}
+.modal::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+}
+.modal::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+}
+.modal::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin: 15px 0;
+}
+@media (max-width: 480px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
 }
 .modal h3 {
     color: #00E676;

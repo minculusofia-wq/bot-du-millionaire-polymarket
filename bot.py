@@ -91,7 +91,7 @@ backend = BotBackend()
 try:
     from polymarket_tracking import PolymarketTracker
     from polymarket_executor import PolymarketExecutor
-    from trailing_monitor import TrailingStopMonitor # ✨ Import Monitor
+    from risk_engine import init_risk_engine  # ✨ Nouveau Risk Engine Unifié
     
     polymarket_tracker = PolymarketTracker(socketio=socketio)
     polymarket_executor = PolymarketExecutor(backend=backend, socketio=socketio)
@@ -100,14 +100,10 @@ try:
     polymarket_tracker.add_callback(polymarket_executor.on_signal_detected)
     print("✅ Tracker connecté à l'Exécuteur")
     
-    # 🚀 Démarrer le monitoring en arrière-plan
+    # 🚀 Démarrer le tracker
     monitoring_interval = backend.data.get('polymarket', {}).get('polling_interval', 5)
     polymarket_tracker.start_monitoring(interval=monitoring_interval)
     print("✅ Monitoring Polymarket démarré")
-    
-    # 🛡️ Démarrer le Trailing Stop Monitor
-    trailing_monitor = TrailingStopMonitor(db_manager, polymarket_executor)
-    trailing_monitor.start()
     
 except ImportError as e:
     print(f"⚠️ Modules Polymarket non disponibles: {e}")
@@ -127,6 +123,13 @@ except ImportError as e:
 try:
     from polymarket_client import polymarket_client as polymarket_clob
     print(f"✅ Client Polymarket unifié chargé: {polymarket_clob.get_stats()}")
+    
+    # 🛡️ Initialisation du Risk Engine (Remplace SLTPMonitor et TrailingStopMonitor)
+    # On l'initialise ici car il a besoin de polymarket_clob et polymarket_executor
+    if polymarket_executor and polymarket_clob:
+        risk_engine = init_risk_engine(polymarket_executor, polymarket_clob)
+        risk_engine.start()
+        print("✅ Risk Engine Polymarket démarré")
 except ImportError as e:
     print(f"⚠️ CLOB Polymarket non disponible: {e}")
     polymarket_clob = None
@@ -176,7 +179,8 @@ def api_status():
         'polymarket_api': {
             'key': os.getenv('POLYMARKET_API_KEY', ''),
             'has_secret': bool(os.getenv('POLYMARKET_SECRET')),
-            'has_passphrase': bool(os.getenv('POLYMARKET_PASSPHRASE'))
+            'has_passphrase': bool(os.getenv('POLYMARKET_PASSPHRASE')),
+            'polygonscan_key': os.getenv('POLYGONSCAN_API_KEY', '')
         },
         'ws_clients': ws_count
     })
@@ -421,8 +425,10 @@ def api_wallets_config():
                 wallet['percent_per_trade'] = percent_per_trade
                 wallet['sl_percent'] = float(sl_percent) if sl_percent is not None else None
                 wallet['tp_percent'] = float(tp_percent) if tp_percent is not None else None
-                wallet['use_kelly'] = bool(use_kelly) # ✨ Save Kelly Flag
-                wallet['use_trailing'] = bool(data.get('use_trailing', False)) # ✨ Save Trailing Flag
+                wallet['use_kelly'] = bool(use_kelly)
+                wallet['use_trailing'] = bool(data.get('use_trailing', False))
+                wallet['use_risk_free'] = bool(data.get('use_risk_free', False)) # ✨ Nouveau
+                wallet['tp_tiers'] = data.get('tp_tiers', []) # ✨ Nouveau: Liste de dicts
                 wallet_found = True
                 break
 
@@ -482,6 +488,7 @@ def api_polymarket_credentials():
         api_key = data.get('api_key', '').strip()
         api_secret = data.get('api_secret', '').strip()
         api_passphrase = data.get('api_passphrase', '').strip()
+        polygonscan_api_key = data.get('polygonscan_api_key', '').strip()
 
         # 1. Mise à jour de l'adresse dans config.json
         if address:
@@ -501,6 +508,7 @@ def api_polymarket_credentials():
         if api_key: updates['POLYMARKET_API_KEY'] = api_key
         if api_secret: updates['POLYMARKET_SECRET'] = secret_manager.encrypt(api_secret)
         if api_passphrase: updates['POLYMARKET_PASSPHRASE'] = secret_manager.encrypt(api_passphrase)
+        if polygonscan_api_key: updates['POLYGONSCAN_API_KEY'] = polygonscan_api_key
 
         new_lines = []
         keys_found = set()
@@ -539,6 +547,10 @@ def api_polymarket_credentials():
             
             if polymarket_clob and hasattr(polymarket_clob, 'set_api_credentials'):
                 polymarket_clob.set_api_credentials(current_key, current_secret, current_pass)
+
+        if polygonscan_api_key and polymarket_tracker:
+            if hasattr(polymarket_tracker, 'set_polygonscan_key'):
+                polymarket_tracker.set_polygonscan_key(polygonscan_api_key)
 
         # Recharger les variables d'environnement pour le processus actuel
         for k, v in updates.items():

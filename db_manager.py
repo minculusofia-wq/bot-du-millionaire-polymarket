@@ -144,6 +144,8 @@ class DBManager:
                 last_updated TEXT NOT NULL,
                 highest_price REAL DEFAULT 0,
                 use_trailing INTEGER DEFAULT 0,
+                exit_tiers TEXT, -- JSON pour paliers de sortie
+                capital_recovered INTEGER DEFAULT 0, -- 1 si capital initial retiré
                 UNIQUE(token_id, source_wallet)
             )
         ''')
@@ -290,8 +292,9 @@ class DBManager:
             INSERT INTO bot_positions
             (token_id, source_wallet, market_slug, outcome, side, shares, size, 
              avg_price, entry_price, current_price, value_usd, sl_percent, tp_percent,
-             unrealized_pnl, status, opened_at, last_updated, highest_price, use_trailing)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             unrealized_pnl, status, opened_at, last_updated, highest_price, use_trailing,
+             exit_tiers, capital_recovered)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             position_data.get('token_id'),
             position_data.get('source_wallet'),
@@ -311,7 +314,9 @@ class DBManager:
             position_data.get('opened_at', datetime.now().isoformat()),
             datetime.now().isoformat(),
             float(position_data.get('entry_price', 0)), # Initial highest_price = entry_price
-            int(position_data.get('use_trailing', 0))
+            int(position_data.get('use_trailing', 0)),
+            position_data.get('exit_tiers'), # Nouveau: JSON string
+            int(position_data.get('capital_recovered', 0)) # Nouveau: 0 ou 1
         ), commit=True)
         
         return cursor.lastrowid
@@ -491,5 +496,21 @@ class DBManager:
     def get_open_positions(self) -> List[Dict]:
         """Récupère uniquement les positions ouvertes"""
         return self.get_bot_positions(status='OPEN')
+
+    def update_position_capital_recovered(self, position_id: int, status: int = 1):
+        """Marque le capital comme récupéré pour une position"""
+        self._execute(
+            "UPDATE bot_positions SET capital_recovered = ?, last_updated = ? WHERE id = ?",
+            (status, datetime.now().isoformat(), position_id),
+            commit=True
+        )
+
+    def update_position_exit_tiers(self, position_id: int, tiers_json: str):
+        """Met à jour l'état des paliers de sortie (JSON)"""
+        self._execute(
+            "UPDATE bot_positions SET exit_tiers = ?, last_updated = ? WHERE id = ?",
+            (tiers_json, datetime.now().isoformat(), position_id),
+            commit=True
+        )
 
 db_manager = DBManager()
