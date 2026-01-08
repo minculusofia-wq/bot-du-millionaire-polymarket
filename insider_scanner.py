@@ -60,6 +60,7 @@ class InsiderAlert:
     scoring_mode: str
     timestamp: str
     dedup_key: str
+    nickname: str = ""
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -536,7 +537,8 @@ class InsiderScanner:
             wallet_stats=wallet_stats,
             scoring_mode=self.config['scoring_preset'],
             timestamp=datetime.now().isoformat(),
-            dedup_key=dedup_key
+            dedup_key=dedup_key,
+            nickname=self.get_polymarket_username(wallet) or ""
         )
 
         # Marquer comme vu
@@ -635,6 +637,19 @@ class InsiderScanner:
         """Arrete la boucle de scan"""
         self.running = False
         logger.info("🛑 Insider Scanner arrete")
+
+    def get_polymarket_username(self, address: str) -> Optional[str]:
+        """Récupère le pseudonyme/name Polymarket pour une adresse donnée"""
+        try:
+            url = f"https://gamma-api.polymarket.com/public-profile?address={address.lower()}"
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                # On priorise 'name' (nickname choisi par l'user) puis 'pseudonym'
+                return data.get('name') or data.get('pseudonym')
+        except Exception as e:
+            logger.error(f"⚠️ Erreur récupération username pour {address}: {e}")
+        return None
 
     def get_market_info(self, token_id: str) -> Dict:
         """Recupere les infos d'un marche via Gamma API (Cache 1h)"""
@@ -788,13 +803,27 @@ class InsiderScanner:
             if stats['pnl'] < -500: score = 10 # Bad performer
             
             if self.db_manager:
-                # 🚀 Mise à jour complète du wallet avec les nouvelles stats
+                # 🚀 Récupérer la source actuelle pour ne pas l'écraser (ex: MANUAL)
+                existing_wallets = self.db_manager.get_saved_insider_wallets()
+                existing_wallet = next((w for w in existing_wallets if w['address'].lower() == wallet_address.lower()), None)
+                source = existing_wallet['source'] if existing_wallet else 'SCANNER'
+
+                # Chercher le nickname Polymarket si absent
+                nickname = existing_wallet['nickname'] if existing_wallet else ''
+                if not nickname or nickname == 'Wallet Sync':
+                    poly_name = self.get_polymarket_username(wallet_address)
+                    if poly_name:
+                        nickname = poly_name
+                        logger.info(f"👤 Nickname trouvé pour {wallet_address}: {nickname}")
+
+                # Mise à jour complète du wallet avec les nouvelles stats
                 self.db_manager.save_insider_wallet({
                     'address': wallet_address.lower(),
                     'pnl': stats['pnl'],
                     'win_rate': stats['win_rate'],
-                    'notes': f"Profilé le {datetime.now().strftime('%d/%m %H:%M')}"
-                })
+                    'nickname': nickname,
+                    'notes': existing_wallet['notes'] if existing_wallet else f"Profilé le {datetime.now().strftime('%d/%m %H:%M')}"
+                }, source=source)
                 
                 # Optionnel: On peut aussi garder l'update direct pour les champs spécifiques si besoin
                 self.db_manager._execute('''

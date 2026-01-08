@@ -184,6 +184,7 @@ class DBManager:
                 scoring_mode TEXT,
                 timestamp TEXT NOT NULL,
                 dedup_key TEXT,
+                nickname TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -213,7 +214,8 @@ class DBManager:
         migrations = [
             ('source', 'TEXT DEFAULT "SCANNER"'),
             ('pnl', 'REAL DEFAULT 0'),
-            ('win_rate', 'REAL DEFAULT 0')
+            ('win_rate', 'REAL DEFAULT 0'),
+            ('nickname', 'TEXT')
         ]
         for col, col_type in migrations:
             try:
@@ -583,8 +585,8 @@ class DBManager:
             INSERT OR REPLACE INTO insider_alerts
             (id, wallet_address, suspicion_score, market_question, market_slug,
              token_id, bet_amount, bet_outcome, outcome_odds, criteria_matched,
-             wallet_stats, scoring_mode, timestamp, dedup_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             wallet_stats, scoring_mode, timestamp, dedup_key, nickname)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             alert_data.get('id'),
             alert_data.get('wallet_address', '').lower(),
@@ -599,7 +601,8 @@ class DBManager:
             json.dumps(alert_data.get('wallet_stats', {})),
             alert_data.get('scoring_mode', 'balanced'),
             alert_data.get('timestamp', datetime.now().isoformat()),
-            alert_data.get('dedup_key')
+            alert_data.get('dedup_key'),
+            alert_data.get('nickname', '')
         ), commit=True)
 
         # Mettre à jour les stats du wallet sauvegardé s'il existe

@@ -245,6 +245,7 @@ function renderAlertFeed(alerts) {
         <div class="insider-alert-card score-${scoreClass}">
             <div class="alert-header">
                 <div class="alert-wallet">
+                    ${alert.nickname ? `<span class="alert-nickname">${escapeHtml(alert.nickname)}</span>` : ''}
                     <span class="alert-wallet-address">${truncateAddress(alert.wallet_address)}</span>
                 </div>
                 <div class="suspicion-score ${scoreClass}">${alert.suspicion_score}</div>

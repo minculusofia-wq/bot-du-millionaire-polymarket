@@ -674,6 +674,15 @@ input:checked+.toggle-slider:before {
     color: #00B0FF;
 }
 
+.alert-nickname {
+    background: rgba(0, 176, 255, 0.1);
+    color: #00E676;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
 /* Suspicion Score Badge */
 .suspicion-score {
     padding: 8px 16px;
