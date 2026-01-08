@@ -92,9 +92,9 @@ class InsiderScanner:
         # Configuration - Seuils de detection (tous configurables)
         self.config = {
             # Seuils Unlikely Bet
-            'min_bet_amount': 1000.0,       # Montant minimum ($)
-            'max_odds_threshold': 0.10,      # Odds max (10%)
-
+            'min_bet_amount': 200.0,        # ✨ Abaissé de 1000 à 200
+            'max_odds_threshold': 0.20,      # ✨ Augmenté de 0.10 à 0.20
+            
             # Seuils Abnormal Behavior
             'dormant_days': 30,              # Jours d'inactivite
             'dormant_min_bet': 500.0,        # Mise min apres dormance ($)
@@ -105,7 +105,7 @@ class InsiderScanner:
 
             # Scoring
             'scoring_preset': ScoringPreset.BALANCED.value,
-            'alert_threshold': 60,           # Score min pour alerte
+            'alert_threshold': 30,           # ✨ Abaissé de 60 à 30
             'categories': self.DEFAULT_CATEGORIES.copy(),
 
             # Poids custom (utilise si preset = custom)
@@ -115,6 +115,11 @@ class InsiderScanner:
                 'suspicious_profile': 30
             }
         }
+
+    def set_polygonscan_key(self, api_key: str):
+        """Met à jour la clé API Polygonscan à chaud"""
+        self.polygonscan_api_key = api_key
+        logger.info(f"✅ Clé Polygonscan mise à jour pour InsiderScanner ({api_key[:6]}...)")
 
         # Deduplication cache: {dedup_key: timestamp}
         self.recent_alerts = {}

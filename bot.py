@@ -584,9 +584,11 @@ def api_polymarket_credentials():
             if polymarket_clob and hasattr(polymarket_clob, 'set_api_credentials'):
                 polymarket_clob.set_api_credentials(current_key, current_secret, current_pass)
 
-        if polygonscan_api_key and polymarket_tracker:
-            if hasattr(polymarket_tracker, 'set_polygonscan_key'):
+        if polygonscan_api_key:
+            if polymarket_tracker and hasattr(polymarket_tracker, 'set_polygonscan_key'):
                 polymarket_tracker.set_polygonscan_key(polygonscan_api_key)
+            if insider_scanner and hasattr(insider_scanner, 'set_polygonscan_key'):
+                insider_scanner.set_polygonscan_key(polygonscan_api_key)
 
         # Recharger les variables d'environnement pour le processus actuel
         for k, v in updates.items():
