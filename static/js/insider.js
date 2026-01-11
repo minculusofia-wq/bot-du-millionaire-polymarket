@@ -220,12 +220,20 @@ function loadInsiderStats() {
         });
 }
 
+// Helper pour garantir un ID unique et consistant
+function getAlertId(alert) {
+    if (!alert) return null;
+    // Priorité à l'ID explicite, sinon timestamp, sinon signature adresse+market
+    if (alert.id) return String(alert.id);
+    if (alert.timestamp) return String(alert.timestamp);
+    return `${alert.wallet_address}_${alert.market_slug}`;
+}
+
 function loadInsiderAlerts() {
     fetch('/api/insider/alerts?limit=50')
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
-
             renderAlertFeed(data.alerts);
         });
 }
@@ -239,8 +247,8 @@ function renderAlertFeed(alerts) {
         return;
     }
 
-    // Filtrer les alertes ignorées
-    const visibleAlerts = alerts.filter(a => !dismissedAlertIds.has(String(a.id || a.timestamp)));
+    // Filtrer les alertes ignorées avec ID consistant
+    const visibleAlerts = alerts.filter(a => !dismissedAlertIds.has(getAlertId(a)));
 
     if (visibleAlerts.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#888;">Toutes les alertes ont été ignorées.</p>';
@@ -256,7 +264,7 @@ function renderAlertFeed(alerts) {
         const pnlClass = (stats.pnl || 0) >= 0 ? 'positive' : 'negative';
 
         // ID unique pour suppression
-        const alertId = alert.id || alert.timestamp;
+        const alertId = getAlertId(alert);
         const marketName = alert.market_question || 'Marché Inconnu';
         const marketUrl = alert.market_url || (alert.market_slug ? `https://polymarket.com/event/${alert.market_slug}` : '#');
 
@@ -313,12 +321,19 @@ function dismissAlert(id) {
     dismissedAlertIds.add(String(id));
     saveDismissedAlerts();
 
-    // Supprimer visuellement
+    // Supprimer visuellement tous les éléments correspondants (feed et pending)
     const el = document.getElementById(`alert-${id}`);
     if (el) {
         el.style.opacity = '0';
         el.style.transform = 'translateX(-20px)';
         setTimeout(() => el.remove(), 400);
+    }
+
+    // Essayer aussi de supprimer par data-attribute (pour liste d'attente)
+    const pendingEl = document.querySelector(`[data-alert-id="${id}"]`);
+    if (pendingEl) {
+        pendingEl.style.opacity = '0';
+        setTimeout(() => pendingEl.remove(), 400);
     }
 }
 
@@ -379,8 +394,11 @@ function renderPendingAlerts(alerts) {
         const stats = alert.wallet_stats || {};
         const pnlClass = (stats.pnl || 0) >= 0 ? 'positive' : 'negative';
 
+        // Use consistent ID
+        const alertId = getAlertId(alert);
+
         return `
-        <div class="pending-alert-card" data-alert-id="${alert.id || alert.wallet_address}">
+        <div class="pending-alert-card" id="pending-alert-${alertId}" data-alert-id="${alertId}">
             <div class="pending-alert-header">
                 <div>
                     <span class="alert-type-badge ${typeClass}">${typeLabel}</span>
@@ -406,7 +424,7 @@ function renderPendingAlerts(alerts) {
             </div>
 
             <div class="pending-alert-actions">
-                <button class="btn btn-save btn-sm" onclick="saveAlertWallet('${alert.wallet_address}', '${escapeHtml(alert.nickname || '')}', '${alert.id || alert.wallet_address}')">
+                <button class="btn btn-save btn-sm" onclick="saveAlertWallet('${alert.wallet_address}', '${escapeHtml(alert.nickname || '')}', '${alertId}')">
                     💾 Sauvegarder
                 </button>
                 <button class="btn btn-primary btn-sm" onclick="viewWalletTrades('${alert.wallet_address}')" style="background: #9C27B0;">
@@ -415,7 +433,7 @@ function renderPendingAlerts(alerts) {
                 <button class="btn btn-primary btn-sm" onclick="followInsiderWallet('${alert.wallet_address}')" style="background: #2D9CDB;">
                     📋 Follow
                 </button>
-                <button class="btn btn-dismiss btn-sm" onclick="dismissAlert('${alert.id || alert.wallet_address}')">
+                <button class="btn btn-dismiss btn-sm" onclick="dismissAlert('${alertId}')">
                     ✕
                 </button>
             </div>
