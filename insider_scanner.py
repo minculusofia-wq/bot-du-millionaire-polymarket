@@ -123,6 +123,9 @@ class InsiderScanner:
             logger.info("   ✅ Polygonscan API configuree")
         else:
             logger.info("   ⚠️ Polygonscan API non configuree (detection profil limitee)")
+        
+        # Charger la config persistante
+        self.load_config_from_file()
 
     def set_polygonscan_key(self, api_key: str):
         """Met à jour la clé API Polygonscan à chaud"""
@@ -134,7 +137,7 @@ class InsiderScanner:
     # =========================================================================
 
     def set_config(self, new_config: Dict):
-        """Met a jour la configuration du scanner avec fusion intelligente"""
+        """Met a jour la configuration du scanner avec fusion intelligente et sauvegarde"""
         for key, value in new_config.items():
             # Si c'est un dictionnaire (ex: un trigger), on merge au lieu d'ecraser
             if key in self.config and isinstance(self.config[key], dict) and isinstance(value, dict):
@@ -142,7 +145,36 @@ class InsiderScanner:
             elif key in self.config:
                 self.config[key] = value
 
-        logger.info(f"📝 Config mise a jour.")
+        self.save_config_to_file()
+        logger.info(f"📝 Config mise a jour et sauvegardee.")
+
+    def save_config_to_file(self):
+        """Sauvegarde la configuration dans un fichier JSON"""
+        try:
+            import json
+            with open('insider_config.json', 'w') as f:
+                # Save purely the config dict, not runtime state like running/stats
+                json.dump(self.config, f, indent=4)
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde config: {e}")
+
+    def load_config_from_file(self):
+        """Charge la configuration depuis un fichier JSON"""
+        try:
+            import json
+            if os.path.exists('insider_config.json'):
+                with open('insider_config.json', 'r') as f:
+                    saved_config = json.load(f)
+                    
+                    # Merge loaded config into default config
+                    for key, value in saved_config.items():
+                         if key in self.config and isinstance(self.config[key], dict) and isinstance(value, dict):
+                            self.config[key].update(value)
+                         else:
+                            self.config[key] = value
+                logger.info("✅ Configuration chargée depuis insider_config.json")
+        except Exception as e:
+            logger.error(f"❌ Erreur chargement config: {e}")
 
     def get_config(self) -> Dict:
         """Retourne la configuration actuelle"""
