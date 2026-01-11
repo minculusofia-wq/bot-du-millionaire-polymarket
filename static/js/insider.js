@@ -28,18 +28,7 @@ function saveDismissedAlerts() {
     }
 }
 
-function dismissAlert(id) {
-    if (!id) return;
-    dismissedAlertIds.add(String(id));
-    saveDismissedAlerts();
-
-    // Supprimer visuellement
-    const el = document.getElementById(`alert-${id}`);
-    if (el) {
-        el.style.opacity = '0';
-        setTimeout(() => el.remove(), 400);
-    }
-}
+// ============ SCANNER CONTROL ============
 
 // ============ SCANNER CONTROL ============
 
