@@ -2,11 +2,16 @@
 """
 HFT Scanner - Orchestrateur principal du module HFT
 Coordonne la découverte de marchés, le monitoring des trades et l'exécution.
+
+Optimisations v3.1:
+- Exécution asynchrone avec ThreadPoolExecutor (ne bloque plus le polling)
+- Callbacks non-bloquants pour latence minimale
 """
 import os
 import json
 import threading
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Callable
 from datetime import datetime
 
@@ -72,15 +77,20 @@ class HFTScanner:
         self._running = False
         self._lock = threading.Lock()
 
+        # ThreadPool pour exécution ASYNCHRONE (non-bloquante)
+        self._execution_pool = ThreadPoolExecutor(max_workers=5)
+        self._pending_executions = 0
+
         # Charger les wallets
         self._load_wallets()
 
         # Stats
         self.signals_received = 0
         self.signals_executed = 0
+        self.signals_failed = 0
         self.start_time: Optional[datetime] = None
 
-        logger.info("HFTScanner initialisé")
+        logger.info("HFTScanner initialisé (exécution asynchrone activée)")
 
     def _load_wallets(self):
         """Charge les wallets depuis la config"""
@@ -142,21 +152,23 @@ class HFTScanner:
         }
 
     def _on_signal_detected(self, signal: HFTSignal):
-        """Callback appelé quand un signal HFT est détecté"""
+        """
+        Callback NON-BLOQUANT appelé quand un signal HFT est détecté.
+        L'exécution est déléguée au ThreadPool pour ne pas bloquer le polling.
+        """
         self.signals_received += 1
 
-        logger.info(f"HFT Signal reçu: {signal.wallet_name} | {signal.side}")
+        logger.info(f"⚡ HFT Signal reçu: {signal.wallet_name} | {signal.side} | ${signal.value_usd:.2f}")
 
-        # Notifier l'UI
+        # Notifier l'UI immédiatement (non-bloquant)
         if self.socketio:
             self.socketio.emit('hft_signal', signal.to_dict(), namespace='/')
 
-        # Vérifier si on doit exécuter
+        # Vérifications rapides (in-memory, non-bloquant)
         if not self.config.get('enabled', False):
             logger.debug("HFT désactivé, signal ignoré")
             return
 
-        # Récupérer la config du wallet
         wallet_config = self._get_wallet_config(signal.wallet_address)
         if not wallet_config:
             logger.warning(f"Wallet {signal.wallet_address[:10]}... non configuré")
@@ -166,14 +178,36 @@ class HFTScanner:
             logger.debug(f"Wallet {signal.wallet_name} désactivé")
             return
 
-        # Exécuter le trade
-        result = self.executor.execute_copy_trade(signal.to_dict(), wallet_config)
+        # EXÉCUTION ASYNCHRONE - Ne bloque PAS le thread de polling !
+        self._pending_executions += 1
+        self._execution_pool.submit(
+            self._execute_trade_async,
+            signal,
+            wallet_config
+        )
+        logger.debug(f"Trade soumis au pool d'exécution (pending: {self._pending_executions})")
 
-        if result.get('status') == 'executed':
-            self.signals_executed += 1
-            logger.info(f"HFT Trade exécuté: ${result.get('value_usd', 0):.2f}")
-        else:
-            logger.warning(f"HFT Trade échoué: {result.get('message', 'Unknown')}")
+    def _execute_trade_async(self, signal: HFTSignal, wallet_config: Dict):
+        """
+        Exécute le trade dans un thread séparé.
+        Ne bloque pas le polling - le scanner continue à détecter pendant l'exécution.
+        """
+        try:
+            result = self.executor.execute_copy_trade(signal.to_dict(), wallet_config)
+
+            if result.get('status') == 'executed':
+                self.signals_executed += 1
+                logger.info(f"✅ HFT Trade exécuté: ${result.get('value_usd', 0):.2f} (latency: {result.get('latency_ms', 0)}ms)")
+            else:
+                self.signals_failed += 1
+                logger.warning(f"❌ HFT Trade échoué: {result.get('message', 'Unknown')}")
+
+        except Exception as e:
+            self.signals_failed += 1
+            logger.error(f"❌ Erreur exécution HFT: {e}")
+
+        finally:
+            self._pending_executions -= 1
 
     def _get_wallet_config(self, address: str) -> Optional[Dict]:
         """Récupère la configuration d'un wallet"""
@@ -291,6 +325,13 @@ class HFTScanner:
         self.market_discovery.stop()
         self.trade_monitor.stop()
 
+        # Attendre les exécutions en cours (max 5s)
+        if self._pending_executions > 0:
+            logger.info(f"Attente de {self._pending_executions} exécution(s) en cours...")
+            self._execution_pool.shutdown(wait=True, cancel_futures=False)
+            # Recréer le pool pour les prochains démarrages
+            self._execution_pool = ThreadPoolExecutor(max_workers=5)
+
         self.config['enabled'] = False
         self.save_config()
 
@@ -319,6 +360,8 @@ class HFTScanner:
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'signals_received': self.signals_received,
             'signals_executed': self.signals_executed,
+            'signals_failed': self.signals_failed,
+            'pending_executions': self._pending_executions,
             'execution_rate': round(
                 self.signals_executed / max(1, self.signals_received) * 100, 1
             ),

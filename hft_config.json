@@ -4,7 +4,7 @@
     "market_refresh_interval": 60,
     "max_slippage_bps": 50,
     "execution_timeout_sec": 2,
-    "poll_interval": 5,
+    "poll_interval": 2,
     "tracked_wallets": [
         {
             "address": "0x589222a5124a96765443b97a3498d89ffd824ad2",

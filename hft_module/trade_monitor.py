@@ -3,13 +3,20 @@
 HFT Trade Monitor - Surveillance temps réel des trades HFT
 Utilise Goldsky Subgraph pour détecter les changements de positions.
 Optimisé pour une latence minimale sur les marchés 15-min crypto.
+
+Optimisations v3.1:
+- Polling réduit à 2 secondes
+- Wallets pollés en parallèle (ThreadPoolExecutor)
+- Cache Gamma API avec TTL 30s
+- Pré-chargement positions au démarrage
 """
 import os
 import threading
 import time
 import logging
 import requests
-from typing import Dict, List, Set, Optional, Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Set, Optional, Callable, Tuple
 from datetime import datetime
 from dataclasses import dataclass, asdict
 from collections import deque
@@ -62,7 +69,7 @@ class HFTTradeMonitor:
         # État
         self._running = False
         self._poll_thread = None
-        self._poll_interval = 5  # 5 secondes - rapide pour HFT
+        self._poll_interval = 2  # 2 secondes - optimisé pour HFT (était 5s)
 
         # Cache positions précédentes pour détecter les changements
         self._last_positions: Dict[str, Dict] = {}  # {wallet: {asset_id: balance}}
@@ -71,6 +78,10 @@ class HFTTradeMonitor:
         self._processed_signals: Set[str] = set()
         self._max_cache_size = 500
 
+        # Cache Gamma API avec TTL (optimisation latence)
+        self._market_cache: Dict[str, Tuple[Dict, float]] = {}  # {token_id: (data, timestamp)}
+        self._cache_ttl = 30  # 30 secondes TTL
+
         # Buffer de signaux récents
         self.recent_signals: deque = deque(maxlen=100)
 
@@ -78,8 +89,13 @@ class HFTTradeMonitor:
         self.signals_detected = 0
         self.last_signal_time: Optional[datetime] = None
         self.polls_count = 0
+        self.cache_hits = 0
+        self.cache_misses = 0
 
-        logger.info("HFTTradeMonitor initialisé (Goldsky + Gamma)")
+        # ThreadPool pour polling parallèle
+        self._executor: Optional[ThreadPoolExecutor] = None
+
+        logger.info("HFTTradeMonitor initialisé (Goldsky + Gamma, polling 2s, parallèle)")
 
     def add_wallet(self, address: str, name: str = "HFT Wallet", config: Dict = None):
         """Ajoute un wallet à surveiller"""
@@ -140,7 +156,7 @@ class HFTTradeMonitor:
             resp = requests.post(
                 self.GOLDSKY_POSITIONS,
                 json={'query': query},
-                timeout=10,
+                timeout=3,  # Réduit de 10s à 3s pour HFT
                 headers={'Content-Type': 'application/json'}
             )
 
@@ -164,22 +180,36 @@ class HFTTradeMonitor:
     # =========================================================================
 
     def _get_market_info(self, token_id: str) -> Dict:
-        """Récupère les infos d'un marché via Gamma API"""
+        """Récupère les infos d'un marché via Gamma API (avec cache TTL 30s)"""
+        now = time.time()
+
+        # Vérifier le cache
+        if token_id in self._market_cache:
+            cached_data, cached_time = self._market_cache[token_id]
+            if now - cached_time < self._cache_ttl:
+                self.cache_hits += 1
+                return cached_data
+
+        self.cache_misses += 1
+
         try:
             resp = requests.get(
                 f"{self.GAMMA_API}/markets",
                 params={'clob_token_ids': token_id},
-                timeout=5
+                timeout=3  # Réduit de 5s à 3s
             )
             if resp.status_code == 200:
                 markets = resp.json()
                 if markets and len(markets) > 0:
                     market = markets[0]
-                    return {
+                    result = {
                         'question': market.get('question', ''),
                         'condition_id': market.get('condition_id', ''),
                         'yes_price': float(market.get('outcomePrices', '["0.5","0.5"]').strip('[]').split(',')[0].strip('"') or 0.5),
                     }
+                    # Stocker en cache
+                    self._market_cache[token_id] = (result, now)
+                    return result
         except Exception as e:
             logger.debug(f"Erreur get_market_info: {e}")
 
@@ -270,45 +300,98 @@ class HFTTradeMonitor:
         return signals
 
     # =========================================================================
-    # POLLING LOOP
+    # POLLING LOOP (PARALLÈLE)
     # =========================================================================
 
+    def _poll_all_wallets_parallel(self) -> List[HFTSignal]:
+        """Poll tous les wallets en parallèle pour réduire la latence"""
+        all_signals = []
+
+        if not self.tracked_wallets:
+            return all_signals
+
+        # Utiliser ThreadPoolExecutor pour polling parallèle
+        with ThreadPoolExecutor(max_workers=min(10, len(self.tracked_wallets) + 1)) as executor:
+            futures = {
+                executor.submit(self._detect_position_changes, addr, info): addr
+                for addr, info in self.tracked_wallets.items()
+            }
+
+            for future in as_completed(futures, timeout=self._poll_interval + 3):
+                try:
+                    signals = future.result()
+                    all_signals.extend(signals)
+                except Exception as e:
+                    wallet_addr = futures[future]
+                    logger.debug(f"Erreur polling {wallet_addr[:10]}...: {e}")
+
+        return all_signals
+
     def _poll_loop(self):
-        """Boucle de polling principale"""
-        logger.info(f"HFT Poll loop démarrée (interval: {self._poll_interval}s)")
+        """Boucle de polling principale (optimisée avec parallélisation)"""
+        logger.info(f"HFT Poll loop démarrée (interval: {self._poll_interval}s, parallèle)")
 
         while self._running:
+            poll_start = time.time()
+
             try:
                 self.polls_count += 1
 
-                for wallet_addr, wallet_info in list(self.tracked_wallets.items()):
+                # Polling parallèle de tous les wallets
+                signals = self._poll_all_wallets_parallel()
+
+                for signal in signals:
                     if not self._running:
                         break
 
-                    # Détecter les changements
-                    signals = self._detect_position_changes(wallet_addr, wallet_info)
+                    self.signals_detected += 1
+                    self.last_signal_time = signal.timestamp
+                    self.recent_signals.append(signal)
 
-                    for signal in signals:
-                        self.signals_detected += 1
-                        self.last_signal_time = signal.timestamp
-                        self.recent_signals.append(signal)
+                    logger.info(
+                        f"⚡ HFT Signal: {signal.wallet_name} | {signal.side} "
+                        f"{signal.crypto_asset or 'TOKEN'} | ${signal.value_usd:.2f}"
+                    )
 
-                        logger.info(
-                            f"⚡ HFT Signal: {signal.wallet_name} | {signal.side} "
-                            f"{signal.crypto_asset or 'TOKEN'} | ${signal.value_usd:.2f}"
-                        )
-
-                        # Notifier les callbacks
-                        self._notify_callbacks(signal)
+                    # Notifier les callbacks
+                    self._notify_callbacks(signal)
 
             except Exception as e:
                 logger.error(f"Erreur poll loop: {e}")
 
-            time.sleep(self._poll_interval)
+            # Calculer le temps restant à attendre
+            poll_duration = time.time() - poll_start
+            sleep_time = max(0, self._poll_interval - poll_duration)
+
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     # =========================================================================
     # CONTROL
     # =========================================================================
+
+    def _preload_positions_parallel(self):
+        """Pré-charge les positions de tous les wallets en parallèle"""
+        if not self.tracked_wallets:
+            return
+
+        logger.info(f"Pré-chargement positions HFT ({len(self.tracked_wallets)} wallets)...")
+
+        with ThreadPoolExecutor(max_workers=min(10, len(self.tracked_wallets) + 1)) as executor:
+            futures = {
+                executor.submit(self._get_user_positions, addr): addr
+                for addr in self.tracked_wallets.keys()
+            }
+
+            for future in as_completed(futures, timeout=15):
+                wallet_addr = futures[future]
+                try:
+                    positions = future.result()
+                    self._last_positions[wallet_addr] = positions
+                    logger.info(f"  ✓ {wallet_addr[:10]}...: {len(positions)} positions")
+                except Exception as e:
+                    logger.warning(f"  ✗ {wallet_addr[:10]}...: {e}")
+                    self._last_positions[wallet_addr] = {}
 
     def start(self):
         """Démarre le monitoring"""
@@ -318,17 +401,14 @@ class HFTTradeMonitor:
 
         self._running = True
 
-        # Initialiser les positions de base pour chaque wallet
-        for wallet_addr in self.tracked_wallets:
-            positions = self._get_user_positions(wallet_addr)
-            self._last_positions[wallet_addr] = positions
-            logger.info(f"Positions initiales: {wallet_addr[:10]}... ({len(positions)} positions)")
+        # Pré-charger les positions en parallèle (évite faux signaux au démarrage)
+        self._preload_positions_parallel()
 
         # Démarrer le polling
         self._poll_thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._poll_thread.start()
 
-        logger.info(f"HFTTradeMonitor démarré ({len(self.tracked_wallets)} wallets)")
+        logger.info(f"HFTTradeMonitor démarré ({len(self.tracked_wallets)} wallets, polling {self._poll_interval}s)")
 
     def stop(self):
         """Arrête le monitoring"""
@@ -341,6 +421,9 @@ class HFTTradeMonitor:
 
     def get_stats(self) -> Dict:
         """Retourne les statistiques"""
+        cache_total = self.cache_hits + self.cache_misses
+        cache_hit_rate = round(self.cache_hits / max(1, cache_total) * 100, 1)
+
         return {
             'running': self._running,
             'tracked_wallets': len(self.tracked_wallets),
@@ -348,5 +431,10 @@ class HFTTradeMonitor:
             'last_signal': self.last_signal_time.isoformat() if self.last_signal_time else None,
             'poll_interval': self._poll_interval,
             'polls_count': self.polls_count,
-            'recent_signals_count': len(self.recent_signals)
+            'recent_signals_count': len(self.recent_signals),
+            # Nouvelles stats cache
+            'cache_hits': self.cache_hits,
+            'cache_misses': self.cache_misses,
+            'cache_hit_rate': cache_hit_rate,
+            'cache_size': len(self._market_cache)
         }

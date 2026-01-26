@@ -2,8 +2,13 @@
 """
 HFT Executor - Exécution rapide des trades HFT
 Exécute les ordres sans validation lourde pour minimiser la latence.
+
+Optimisations v3.1:
+- DB write asynchrone (fire-and-forget)
+- Ne bloque pas le retour de l'exécution
 """
 import logging
+import threading
 from typing import Dict, Optional
 from datetime import datetime
 
@@ -224,31 +229,44 @@ class HFTExecutor:
             }
 
     def _save_trade_to_db(self, signal: Dict, result: Dict, wallet_config: Dict):
-        """Sauvegarde le trade en base de données"""
+        """
+        Sauvegarde le trade en base de données de manière ASYNCHRONE.
+        Fire-and-forget : ne bloque pas l'exécution.
+        """
+        # Préparer les données avant le thread pour éviter race conditions
+        trade_data = {
+            'signal_timestamp': signal.get('timestamp', datetime.now().isoformat()),
+            'execution_timestamp': result.get('timestamp'),
+            'source_wallet': signal.get('wallet_address', ''),
+            'trader_name': signal.get('wallet_name', wallet_config.get('name', '')),
+            'market_question': signal.get('market_question', ''),
+            'token_id': result.get('token_id', ''),
+            'condition_id': signal.get('condition_id', ''),
+            'side': result.get('side', ''),
+            'signal_price': signal.get('price', 0),
+            'execution_price': result.get('price', 0),
+            'size_usd': result.get('value_usd', 0),
+            'shares': result.get('shares', 0),
+            'latency_ms': result.get('latency_ms', 0),
+            'status': result.get('status', 'unknown'),
+            'order_id': result.get('order_id', ''),
+            'error_message': result.get('message', '') if result.get('status') != 'executed' else ''
+        }
+
+        # Fire-and-forget : lancer en background sans attendre
+        threading.Thread(
+            target=self._do_save_trade,
+            args=(trade_data,),
+            daemon=True
+        ).start()
+
+    def _do_save_trade(self, trade_data: Dict):
+        """Exécute la sauvegarde DB dans un thread séparé"""
         try:
-            trade_data = {
-                'signal_timestamp': signal.get('timestamp', datetime.now().isoformat()),
-                'execution_timestamp': result.get('timestamp'),
-                'source_wallet': signal.get('wallet_address', ''),
-                'trader_name': signal.get('wallet_name', wallet_config.get('name', '')),
-                'market_question': signal.get('market_question', ''),
-                'token_id': result.get('token_id', ''),
-                'condition_id': signal.get('condition_id', ''),
-                'side': result.get('side', ''),
-                'signal_price': signal.get('price', 0),
-                'execution_price': result.get('price', 0),
-                'size_usd': result.get('value_usd', 0),
-                'shares': result.get('shares', 0),
-                'latency_ms': result.get('latency_ms', 0),
-                'status': result.get('status', 'unknown'),
-                'order_id': result.get('order_id', ''),
-                'error_message': result.get('message', '') if result.get('status') != 'executed' else ''
-            }
-
             self.db_manager.save_hft_trade(trade_data)
-
+            logger.debug(f"Trade sauvegardé en DB: {trade_data.get('order_id', 'N/A')}")
         except Exception as e:
-            logger.error(f"Erreur save_trade_to_db: {e}")
+            logger.error(f"Erreur save_trade_to_db (async): {e}")
 
     def get_stats(self) -> Dict:
         """Retourne les statistiques"""
