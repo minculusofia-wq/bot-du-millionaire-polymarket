@@ -4,13 +4,15 @@ HFT Trade Monitor - Surveillance temps réel des trades HFT
 Utilise Goldsky Subgraph pour détecter les changements de positions.
 Optimisé pour une latence minimale sur les marchés 15-min crypto.
 
-Optimisations v3.1:
+Optimisations v3.2:
 - Polling réduit à 2 secondes
 - Wallets pollés en parallèle (ThreadPoolExecutor)
 - Cache Gamma API avec TTL 30s
 - Pré-chargement positions au démarrage
+- Rate limiter partagé avec InsiderScanner (évite conflits 429)
 """
 import os
+import sys
 import threading
 import time
 import logging
@@ -20,6 +22,10 @@ from typing import Dict, List, Set, Optional, Callable, Tuple
 from datetime import datetime
 from dataclasses import dataclass, asdict
 from collections import deque
+
+# Ajouter le parent au path pour importer goldsky_rate_limiter
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from goldsky_rate_limiter import get_goldsky_rate_limiter, Priority
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("HFTTradeMonitor")
@@ -153,6 +159,10 @@ class HFTTradeMonitor:
         """ % address.lower()
 
         try:
+            # Rate limiter avec priorité HFT (plus haute que Insider)
+            rate_limiter = get_goldsky_rate_limiter()
+            rate_limiter.wait_for_slot(Priority.HFT)
+
             resp = requests.post(
                 self.GOLDSKY_POSITIONS,
                 json={'query': query},
@@ -161,6 +171,7 @@ class HFTTradeMonitor:
             )
 
             if resp.status_code == 200:
+                rate_limiter.report_success()
                 data = resp.json()
                 if 'data' in data and data['data'].get('userBalances'):
                     positions = {}
@@ -170,6 +181,8 @@ class HFTTradeMonitor:
                         balance = float(bal['balance']) / 1e6
                         positions[asset_id] = balance
                     return positions
+            elif resp.status_code == 429:
+                rate_limiter.report_rate_limit()
             return {}
         except Exception as e:
             logger.debug(f"Erreur get_user_positions: {e}")

@@ -40,4 +40,7 @@ echo "📱 L'application sera disponible à : http://localhost:5000"
 echo "=================================================="
 echo ""
 
+# 5. Ouvrir le navigateur automatiquement après 3 secondes (en background)
+(sleep 3 && open "http://localhost:5000") &
+
 ./venv/bin/python bot.py

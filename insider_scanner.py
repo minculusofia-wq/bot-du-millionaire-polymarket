@@ -2,6 +2,8 @@
 """
 Insider Scanner - Detection de comportements suspects sur Polymarket
 Scanne les marches actifs pour identifier les wallets avec des patterns de trading suspects.
+
+v3.2: Intégration GoldskyRateLimiter pour éviter les conflits avec HFT Monitor
 """
 import os
 import requests
@@ -12,6 +14,9 @@ from typing import List, Dict, Optional, Callable
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from enum import Enum
+
+# Rate limiter partagé
+from goldsky_rate_limiter import get_goldsky_rate_limiter, Priority
 
 # Configuration logging
 logging.basicConfig(level=logging.INFO)
@@ -55,9 +60,8 @@ class InsiderScanner:
     GAMMA_API = "https://gamma-api.polymarket.com"
     GOLDSKY_POSITIONS = "https://api.goldsky.com/api/public/project_cl6mb8i9h0003e201j6li0diw/subgraphs/positions-subgraph/0.0.7/gn"
     GOLDSKY_ACTIVITY = "https://api.goldsky.com/api/public/project_cl6mb8i9h0003e201j6li0diw/subgraphs/activity-subgraph/0.0.4/gn"
-    # Polygonscan API V2 (V1 is deprecated)
-    POLYGONSCAN_API = "https://api.etherscan.io/v2/api"
-    POLYGON_CHAINID = 137  # Polygon mainnet
+    # Polygonscan API V2 - Direct Polygon endpoint (not etherscan proxy)
+    POLYGONSCAN_API = "https://api.polygonscan.com/api"
 
     # Categories de marches a scanner
     DEFAULT_CATEGORIES = ["politics", "sports", "crypto", "pop-culture"]
@@ -71,6 +75,11 @@ class InsiderScanner:
         self.running = False
         self.scan_thread = None
         self.scan_interval = 30  # seconds
+
+        # 🔧 FIX: Thread locks pour accès concurrent
+        self._state_lock = threading.Lock()  # Pour running, config
+        self._cache_lock = threading.Lock()  # Pour les caches
+        self._snapshot_lock = threading.Lock()  # Pour market_snapshots
 
         # Configuration - Seuils de detection (Triggers Independants)
         self.config = {
@@ -113,7 +122,8 @@ class InsiderScanner:
         self._wallet_tx_cache = {}  # {address: {count, timestamp}}
         self._wallet_activity_cache = {}  # {address: {last_activity, timestamp}}
         self._market_cache = {}  # {token_id: {data, timestamp}}
-        self._market_snapshots = {} # [NEW] {condition_id: {user: balance}} pour detection de variation (diff)
+        self._market_snapshots = {} # {condition_id: {user: balance, _updated: datetime}}
+        self._max_snapshot_age = 3600 * 6  # 6 heures max pour les snapshots
 
         # Stats
         self.alerts_generated = 0
@@ -257,51 +267,74 @@ class InsiderScanner:
         """ % (limit, condition_id)
 
         try:
+            # Rate limiter - attendre un slot disponible (priorité INSIDER)
+            rate_limiter = get_goldsky_rate_limiter()
+            rate_limiter.wait_for_slot(Priority.INSIDER)
+
             resp = requests.post(self.GOLDSKY_POSITIONS, json={'query': query}, timeout=15)
-            
+
             current_holders = {} # {user: balance}
             activities = []
 
             if resp.status_code == 200:
-                data = resp.json()
-                if 'data' in data and data['data'].get('userBalances'):
+                rate_limiter.report_success()
+                try:
+                    data = resp.json()
+                except Exception as json_err:
+                    logger.warning(f"Invalid JSON response from Goldsky: {json_err}")
+                    return []
+
+                # 🔧 FIX: Vérifier les erreurs GraphQL
+                if 'errors' in data:
+                    logger.warning(f"Goldsky GraphQL errors: {data['errors']}")
+                    return []
+
+                if 'data' in data and data['data'] and data['data'].get('userBalances'):
                     raw_positions = data['data']['userBalances']
-                    
+
                     # Construire la map actuelle
                     for p in raw_positions:
                         user = p.get('user')
                         balance = float(p.get('balance', 0))
                         current_holders[user] = balance
-            
-            # 2. Comparer avec le snapshot PRECEDENT
+            elif resp.status_code == 429:
+                rate_limiter.report_rate_limit()
+                logger.warning(f"Goldsky API rate limited (429)")
+            else:
+                logger.warning(f"Goldsky API returned status {resp.status_code}")
+
+            # 2. Comparer avec le snapshot PRECEDENT (thread-safe)
             # Si c'est le premier scan, on ne genere PAS d'alerte (sinon on alerte sur tout le monde)
             # On initialise juste le snapshot.
-            if condition_id in self._market_snapshots:
-                last_holders = self._market_snapshots[condition_id]
-                
-                # Detecter les NOUVEAUX et les AUGMENTATIONS
-                for user, current_bal in current_holders.items():
-                    old_bal = last_holders.get(user, 0)
-                    
-                    # Seuil minimum de changement (ex: 10$ -> ~10_000_000 units)
-                    # Mais on laisse process_activity filtrer par montant USD ($10)
-                    if current_bal > old_bal:
-                        diff = current_bal - old_bal
-                        
-                        # Generer une activite synthetique "BUY/HOLD"
-                        activities.append({
-                            'user': user,
-                            'amount': diff,   # Le montant de l'augmentation = le montant du pari recent
-                            'timestamp': datetime.now().timestamp(),
-                            'type': 'POSITION_INCREASE'
-                        })
-            else:
-                # Premier passage : on ne sait pas ce qui est nouveau, on apprend juste l'etat du marche.
-                # logger.debug(f"Snapshot initial pour {condition_id} ({len(current_holders)} holders)")
-                pass
+            with self._snapshot_lock:
+                if condition_id in self._market_snapshots:
+                    last_holders = self._market_snapshots[condition_id].copy()  # Copy pour éviter race condition
 
-            # 3. Mettre a jour le snapshot
-            self._market_snapshots[condition_id] = current_holders
+                    # Detecter les NOUVEAUX et les AUGMENTATIONS
+                    for user, current_bal in current_holders.items():
+                        old_bal = last_holders.get(user, 0)
+
+                        # Seuil minimum de changement (ex: 10$ -> ~10_000_000 units)
+                        # Mais on laisse process_activity filtrer par montant USD ($10)
+                        if current_bal > old_bal:
+                            diff = current_bal - old_bal
+
+                            # 🔧 FIX: Inclure condition_id et token_id dans l'activité
+                            activities.append({
+                                'user': user,
+                                'amount': diff,
+                                'timestamp': datetime.now().timestamp(),
+                                'type': 'POSITION_INCREASE',
+                                'condition_id': condition_id,  # Ajouté pour traçabilité
+                                'balance': current_bal
+                            })
+                else:
+                    # Premier passage : on ne sait pas ce qui est nouveau, on apprend juste l'etat du marche.
+                    pass
+
+                # 3. Mettre a jour le snapshot avec timestamp
+                current_holders['_updated'] = datetime.now()
+                self._market_snapshots[condition_id] = current_holders
             
             return activities
 
@@ -323,9 +356,8 @@ class InsiderScanner:
                 return cached['count']
 
         try:
-            # API V2 requires chainid parameter
+            # Polygonscan API (standard format)
             params = {
-                'chainid': self.POLYGON_CHAINID,
                 'module': 'account',
                 'action': 'txlist',
                 'address': address,
@@ -337,13 +369,13 @@ class InsiderScanner:
             resp = requests.get(self.POLYGONSCAN_API, params=params, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                # V2 API returns status '1' on success
+                # API returns status '1' on success
                 if data.get('status') == '1':
                     count = len(data.get('result', []))
                     self._wallet_tx_cache[addr_lower] = {'count': count, 'timestamp': datetime.now()}
                     logger.debug(f"TX count for {address[:10]}...: {count}")
                     return count
-                elif data.get('message') == 'No transactions found':
+                elif 'No transactions found' in str(data.get('message', '')):
                     self._wallet_tx_cache[addr_lower] = {'count': 0, 'timestamp': datetime.now()}
                     return 0
                 else:
@@ -367,9 +399,8 @@ class InsiderScanner:
                 return cached['last_activity']
 
         try:
-            # API V2 requires chainid parameter
+            # Polygonscan API (standard format)
             params = {
-                'chainid': self.POLYGON_CHAINID,
                 'module': 'account',
                 'action': 'txlist',
                 'address': address,
@@ -450,9 +481,14 @@ class InsiderScanner:
                   }
                 }
                 """ % address.lower()
-                
+
+                # Rate limiter
+                rate_limiter = get_goldsky_rate_limiter()
+                rate_limiter.wait_for_slot(Priority.INSIDER)
+
                 resp = requests.post(self.GOLDSKY_POSITIONS, json={'query': query}, timeout=15)
                 if resp.status_code == 200:
+                    rate_limiter.report_success()
                     data = resp.json()
                     balances = data.get('data', {}).get('userBalances', [])
 
@@ -579,6 +615,21 @@ class InsiderScanner:
         for k in expired:
             del self.recent_alerts[k]
 
+    def _cleanup_old_snapshots(self):
+        """Nettoie les snapshots de marchés trop vieux pour éviter fuite mémoire"""
+        now = datetime.now()
+        expired = []
+        # 🔧 FIX: Thread-safe cleanup
+        with self._snapshot_lock:
+            for cid, snapshot in list(self._market_snapshots.items()):  # list() pour copie safe
+                updated = snapshot.get('_updated')
+                if updated and (now - updated).total_seconds() > self._max_snapshot_age:
+                    expired.append(cid)
+            for cid in expired:
+                del self._market_snapshots[cid]
+        if expired:
+            logger.debug(f"🧹 Nettoyé {len(expired)} snapshots expirés")
+
     def process_activity(self, activity: Dict, market: Dict) -> Optional[InsiderAlert]:
         """Traite une activite et genere une alerte si un trigger est active"""
         wallet = activity.get('user', '')
@@ -703,6 +754,7 @@ class InsiderScanner:
         """Scanne tous les marches configures pour activite suspecte"""
         all_alerts = []
         self._cleanup_dedup_cache()
+        self._cleanup_old_snapshots()  # Nettoyage mémoire
 
         categories = self.config.get('categories', self.DEFAULT_CATEGORIES)
         total_activities = 0
@@ -733,9 +785,13 @@ class InsiderScanner:
                             all_alerts.append(alert)
                             self.alerts_generated += 1
 
-                            # Emettre via WebSocket
+                            # Emettre via WebSocket (broadcast à tous les clients connectés)
                             if self.socketio:
-                                self.socketio.emit('insider_alert', alert.to_dict())
+                                try:
+                                    # 🔧 FIX: Utiliser emit avec namespace pour broadcast depuis thread
+                                    self.socketio.emit('insider_alert', alert.to_dict(), namespace='/')
+                                except Exception as ws_err:
+                                    logger.warning(f"WebSocket emit error: {ws_err}")
 
                             # Sauvegarder en DB
                             if self.db_manager:
@@ -790,11 +846,18 @@ class InsiderScanner:
 
         def scan_loop():
             logger.info(f"🚀 Insider Scanner demarre (intervalle: {self.scan_interval}s)")
+            scan_count = 0
             while self.running:
                 try:
                     alerts = self.scan_all_markets()
                     if alerts:
                         logger.info(f"📊 {len(alerts)} alerte(s) generee(s)")
+
+                    # Cleanup DB toutes les 100 scans (~50 min si interval=30s)
+                    scan_count += 1
+                    if scan_count % 100 == 0 and self.db_manager:
+                        self.db_manager.cleanup_old_insider_alerts(days=30)
+
                 except Exception as e:
                     logger.error(f"❌ Erreur scan loop: {e}")
 
@@ -871,10 +934,17 @@ class InsiderScanner:
         """ % address.lower()
 
         try:
+            # Rate limiter
+            rate_limiter = get_goldsky_rate_limiter()
+            rate_limiter.wait_for_slot(Priority.INSIDER)
+
             resp = requests.post(self.GOLDSKY_POSITIONS, json={'query': query}, timeout=10)
             if resp.status_code == 200:
+                rate_limiter.report_success()
                 data = resp.json()
                 return data.get('data', {}).get('userBalances', [])
+            elif resp.status_code == 429:
+                rate_limiter.report_rate_limit()
         except Exception as e:
             logger.debug(f"Error getting wallet positions: {e}")
         return []
